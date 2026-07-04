@@ -15,6 +15,9 @@
     "build": "tsc",
     "build:watch": "tsc --watch"
   },
+  "dependencies": {
+    "@colyseus/schema": "^2.0.4"
+  },
   "devDependencies": {
     "typescript": "*"
   }
