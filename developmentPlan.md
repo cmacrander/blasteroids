@@ -4,14 +4,14 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 
 ## Scaffolding
 
-- [ ] Monorepo initialized: `client/`, `server/`, `shared/` packages with `tsconfig`, `eslint`, `prettier`, and root `package.json` wiring up `npm run dev`, `npm test`, and `npm run build`
-- [ ] Server starts and responds 200 on a health check route
-- [ ] Client loads a blank page in the browser via Vite
+- [x] Monorepo initialized: `client/`, `server/`, `shared/` packages with `tsconfig`, `eslint`, `prettier`, and root `package.json` wiring up `npm run dev`, `npm test`, and `npm run build`
+- [x] Server starts and responds 200 on a health check route
+- [x] Client loads a blank page in the browser via Vite
 
 ## Server-client connection
 
-- [ ] Client opens a WebSocket connection to the Colyseus server
-- [ ] Server sends "hello world" to the client; client displays it on screen
+- [x] Client opens a WebSocket connection to the Colyseus server
+- [x] Server sends "hello world" to the client; client displays it on screen
 
 ## Auth
 
