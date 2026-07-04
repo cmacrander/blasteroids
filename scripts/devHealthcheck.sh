@@ -23,9 +23,11 @@ if [ "$serverOk" = true ] && [ "$clientOk" = true ]; then
 fi
 
 echo "Something is down. Clearing stale dev processes..."
-# Patterns cover the whole `npm run dev` tree: concurrently, the tsx server
-# watcher, and the vite client. `npm run doctor` never matches these.
+# Patterns cover the whole `npm run dev` tree: concurrently, the shared
+# package's tsc watcher, the tsx server watcher, and the vite client.
+# `npm run doctor` never matches these.
 pkill -9 -f "concurrently" 2>/dev/null
+pkill -9 -f "node_modules/.bin/tsc --watch" 2>/dev/null
 pkill -9 -f "tsx watch src/index.ts" 2>/dev/null
 pkill -9 -f "node_modules/.bin/vite" 2>/dev/null
 pkill -9 -f "npm run dev" 2>/dev/null

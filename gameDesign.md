@@ -56,7 +56,7 @@ v1 has no persistence; every match starts fresh. To keep future persistence addi
 
 From the repo root:
 
-- `npm run dev` - starts both the Colyseus server (`tsx watch`) and Vite client (`vite`) via `concurrently`
+- `npm run dev` - starts the `shared` package's `tsc --watch` build, the Colyseus server (`tsx watch`), and the Vite client (`vite`), all via `concurrently`. Rebuilding `shared` on change matters because `client`/`server` import its compiled `dist` output, not its TypeScript source directly.
 - `npm run build` - bundles the client
 - `npm test` - runs vitest
 - `npm run deploy:client` - deploys client to Firebase Hosting
@@ -93,21 +93,23 @@ Because matches are instanced and short, nothing persists between matches in v1:
 A player's ship is made of square parts, where each part is one of these types:
 
 - core
-  - consumes power
+  - consumes constant power
   - increases power efficiency
 - power
-  - produces a fixed amount of energy per tick
+  - produces constant power
   - has a baseline efficiency rating (starts low, ~25%) so only a portion of produced power is delivered to the ship
 - engine
-  - consumes power
+  - consumes power when used by the player
   - has an edge (exhaust) which cannot connect to other parts
   - produces a fixed amount of thrust in the direction of its exhaust
+  - has a boost mode that consumes additional power and produces additinoal thrust
   - has a baseline efficiency rating (starts low, ~25%) so only a portion of produced thrust is realized
 - laser
-  - consumes power
+  - consumes power when used by the player
   - has an edge (emitting lens) which cannot connect to other parts
   - the emitted laser beam extends a fixed length (in world units) in a straight line from the lens
   - objects whose hitbox the beam intersects take damage every tick
+  - has a boost mode that consumes additional power and deals additional damage
   - has a baseline efficiency rating (starts low, ~25%) that limits the range of the laser beam and its damage per tick.
 
 All ship parts:
@@ -118,11 +120,7 @@ All ship parts:
 - have HP
 - when they reach 0 HP, have a chance to disappear or to detach from the ship
 
-### Power budgeting
-
-Each power-consuming part (core, engine, laser) is in one of two states: powered or unpowered. An unpowered part does not function (no efficiency boost, no thrust, no beam).
-
-Power is allocated round-robin whenever the ship changes (parts added, removed, or destroyed). Walk the parts in a repeating type order — core, engine, laser, core, engine, laser, ... — powering one part of each type per pass, subtracting its consumption from the available power budget. Continue until the budget is exhausted; every part not yet reached is unpowered. This spreads scarce power evenly across part types rather than starving one type. The total budget is the sum of delivered power from power parts (production times efficiency).
+### Ship composition
 
 A ship is a rigid body: all attached parts share the same linear velocity, angular velocity, and rotation. Rapier computes center of mass and moment of inertia automatically from each part's collider and density.
 
@@ -132,6 +130,22 @@ If at any time the player's ship does not satisfy basic requirements, they lose 
 
 - 1 core part
 - 1 power part
+
+### Power budgeting
+
+Core parts are in one of two states: on or off. Cores that are off have no effect on ship efficiency. Each active core beyond the first adds a diminishing-returns bonus to power efficiency (`efficiency = 1 - (1 - baselineEfficiency) ^ activeCoreCount`), so early cores matter more than later ones and efficiency asymptotically approaches 100% as more cores come online.
+
+Laser and engine parts are in one of three states:
+
+- Inactive: consumes no power
+- Active: consumes power at a standard rate
+- Boosted: consumes power at a higher rate
+
+Cores are only ever checked against instantaneous power generation, never against stored capacitor energy: if generation cannot cover core consumption this tick, cores shut off immediately, with no grace period from the capacitor. Engines and lasers, by contrast, are backed by the capacitor: they draw first from any instantaneous surplus left over after cores, then from stored capacitor charge; sustained engine/laser use beyond that surplus drains the capacitor toward zero. When stored energy reaches zero, engines and lasers stop working even though cores may remain fully powered. The capacitor stores energy up to some limit; once full, additional surplus generation that tick is discarded rather than stored.
+
+Power is allocated to cores before any other parts. Activating engines and lasers cannot deprive core parts of power. If core power consumption exceeds power generation, cores switch off, one at a time, in reverse attach order (the most-recently-attached active core goes first), looping within the same tick until core consumption no longer exceeds generation. This means a sudden generation drop (e.g. losing a power part) never leaves the ship over-drawn for more than the tick it happens in. When excess power generation is greater than the consumption of one core part, one additional core part (if it exists) can be switched back on, in attach order (the earliest-attached inactive core comes back first); only one core is restored per tick, since bringing a core online consumes part of the surplus that justified restoring it, and the situation is re-evaluated the following tick.
+
+It's important that, as a ship becomes damaged, it is always in a functional state. If game constants are set such that the power generated by a single power part is greater than the consumption of a single core part, then any ship with all but one of its power parts destroyed will be able to power at least one core part and still have a positive net generation (if the last power part is destroyed the player loses).
 
 ### Game over and respawn
 
@@ -209,12 +223,7 @@ Implementation notes:
 
 The game includes natural asteroids. They are pre-populated on game start, and also are spawned in regions far from players.
 
-Asteroids are conceptually ships made of "rock" cells (1 square unit, all attached, a defined HP per unit). They can be damaged by lasers. When a rock cell reaches 0 HP it is destroyed, and the player who destroyed it gains "supplies" as a type of currency. At any point, with enough supplies, a player can "build" a part and have it attached to their ship. The build actions should be dedicated keys:
-
-- u for engine
-- i for laser
-- o for core
-- p for power
+Asteroids are conceptually ships made of "rock" cells (1 square unit, all attached, a defined HP per unit). They can be damaged by lasers. When a rock cell reaches 0 HP it is destroyed, and the player who destroyed it gains "supplies" as a type of currency.
 
 #### Asteroid performance model
 
@@ -231,6 +240,28 @@ This split is asteroid-specific. Ships keep one collider per part: they have few
 
 State sync follows the same split: an asteroid is synced as its rigid-body transform plus a compact per-cell representation (HP or an alive/dead bitmask), not as N separate entities.
 
+### Building
+
+With enough supplies, players can add new parts to their ship. There is a dedicated action for adding each type of ship part (see [Controls](#controls)). The new part is attached with the defragmentation rules, as if it was the last part to be attached in the defragmentation algorithm. When the player builds a part, its cost in supplies is deducted from the player's total.
+
 ### Ship to ship combat
 
 This should be covered by all the rules above. Lasers can damage other player's ships just like they damage asteroids. Parts detached from their ship can be scavenged by other players. Groups of parts can be carved off ships. Players are always left with the group with the most core parts. When a player loses all their core parts or all their power parts, they lose the game.
+
+## Controls
+
+Keep bindings separate from actions.
+
+| action            | default binding                    |
+| ----------------- | ---------------------------------- |
+| engines on        | key down: w                        |
+| engines boost     | double-tap and hold: w             |
+| lasers on         | mouse down: left button            |
+| lasers boost      | double-click and hold: left button |
+| scavenge          | mouse click: right button          |
+| rotate            | mouse position                     |
+| build core part   | key: a                             |
+| build power part  | key: s                             |
+| build engine part | key: d                             |
+| build laser part  | key: f                             |
+| defragment        | key: tab                           |

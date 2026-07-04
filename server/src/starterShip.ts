@@ -48,6 +48,10 @@ export function buildStarterShip(x: number, y: number): Ship {
     part.offsetY = spec.offsetY;
     part.facing = spec.facing;
     part.hp = starterHp;
+    // The starter core boots up powered on; power budgeting can never switch a
+    // core on from a fully unpowered ship, since generation requires an active
+    // core in the first place (see tickPowerBudget).
+    if (spec.type === partType.core) part.powered = true;
     ship.parts.set(spec.key, part);
   }
 

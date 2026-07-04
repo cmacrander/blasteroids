@@ -10,6 +10,7 @@
   "dependencies": {
     "@blasteroids/shared": "*",
     "@colyseus/ws-transport": "^0.15.0",
+    "@dimforge/rapier2d-compat": "^0.19.3",
     "colyseus": "^0.15.0"
   },
   "devDependencies": {
