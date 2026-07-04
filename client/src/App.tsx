@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import type { User } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
 import type { Room } from "colyseus.js";
+import type { MatchState } from "@blasteroids/shared";
 import { auth, signInWithGoogle, signOut } from "./firebaseAuth";
 import { colyseusClient } from "./serverConnection";
 import { StartScreen } from "./StartScreen";
@@ -10,7 +11,7 @@ import { GameView } from "./GameView";
 
 export function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
-  const [room, setRoom] = useState<Room | null>(null);
+  const [room, setRoom] = useState<Room<MatchState> | null>(null);
 
   useEffect(() => onAuthStateChanged(auth, setUser), []);
 
@@ -34,12 +35,12 @@ export function App() {
       setRoom(null);
       history.pushState(null, "", "/");
     };
-    return <GameView onExit={handleExit} />;
+    return <GameView room={room} onExit={handleExit} />;
   }
 
   const handleQuickPlay = async () => {
     try {
-      const r = await colyseusClient.joinOrCreate("game");
+      const r = await colyseusClient.joinOrCreate<MatchState>("game");
       setRoom(r);
       history.pushState(null, "", `/${r.roomId}`);
     } catch (err) {

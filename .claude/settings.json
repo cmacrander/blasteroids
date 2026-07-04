@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DIR=\"${CLAUDE_PROJECT_DIR:-/Users/agents/Workspaces/blasteroids}\"; LIVE=/home/agent/.claude/projects/-Users-agents-Workspaces-blasteroids/memory; mkdir -p \"$LIVE\"; cp -f \"$DIR\"/.claude/memory/*.md \"$LIVE\"/ 2>/dev/null || true",
+            "statusMessage": "Restoring memory from repo"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "DIR=\"${CLAUDE_PROJECT_DIR:-/Users/agents/Workspaces/blasteroids}\"; LIVE=/home/agent/.claude/projects/-Users-agents-Workspaces-blasteroids/memory; cp -f \"$LIVE\"/*.md \"$DIR\"/.claude/memory/ 2>/dev/null || true",
+            "statusMessage": "Syncing memory back to repo"
+          }
+        ]
+      }
+    ]
+  }
+}

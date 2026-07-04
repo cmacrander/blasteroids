@@ -34,7 +34,12 @@ export default [
     },
   },
   {
-    files: ["server/src/**/*.ts", "vitest.config.ts", "client/vite.config.ts"],
+    files: [
+      "server/src/**/*.ts",
+      "client/scripts/**/*.mjs",
+      "vitest.config.ts",
+      "client/vite.config.ts",
+    ],
     languageOptions: {
       globals: globals.node,
     },

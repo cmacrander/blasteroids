@@ -30,13 +30,13 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 
 ## Shared state schema
 
-- [ ] Define the Colyseus schema in `shared/`: the client/server contract for entities and their fields (part type, local offset within the ship, facing, HP, powered flag) plus each body's transform and velocity, and per-player fields (score, input sequence number)
-- [ ] Keep state as plain serializable data so a whole match can be serialized later without refactoring (persistence hook)
+- [x] Define the Colyseus schema in `shared/`: the client/server contract for entities and their fields (part type, local offset within the ship, facing, HP, powered flag) plus each body's transform and velocity, and per-player fields (score, input sequence number)
+- [x] Keep state as plain serializable data so a whole match can be serialized later without refactoring (persistence hook)
 
 ## Ship rendering
 
-- [ ] Server spawns a starter ship when a player joins a room
-- [ ] Client receives ship state and renders the ship sprite on the canvas
+- [x] Server spawns a starter ship when a player joins a room
+- [x] Client receives ship state and renders the ship sprite on the canvas
 - [ ] Camera is stuck to the local player: their ship stays centered and the world scrolls beneath it (world-to-screen transform centered on the ship)
 
 ## Physics
