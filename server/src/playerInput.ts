@@ -11,3 +11,9 @@ export function applyEngineActivation(ship: Ship, message: unknown): void {
     if (part.partType === partType.engine) part.activation = message;
   });
 }
+
+export function parseAimAngle(message: unknown): number | undefined {
+  if (typeof message !== "number" || !Number.isFinite(message))
+    return undefined;
+  return message;
+}

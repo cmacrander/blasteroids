@@ -57,6 +57,8 @@ v1 has no persistence; every match starts fresh. To keep future persistence addi
 From the repo root:
 
 - `npm run dev` - starts the `shared` package's `tsc --watch` build, the Colyseus server (`tsx watch`), and the Vite client (`vite`), all via `concurrently`. Rebuilding `shared` on change matters because `client`/`server` import its compiled `dist` output, not its TypeScript source directly.
+- `npm run doctor` - reports whether the server (`:2567`) and client (`:3000`) are up, and whether duplicate dev processes are running (a sign of a stacked/leftover restart). If either check fails, it runs `npm run kill` for you.
+- `npm run kill` - force-kills every process `npm run dev` can spawn and clears Vite's dependency cache. Use this any time the dev environment seems broken (e.g. `Uncaught ReferenceError: exports is not defined` in the browser, which is what a stale Vite cache looks like), then run `npm run dev` again for a clean start.
 - `npm run build` - bundles the client
 - `npm test` - runs vitest
 - `npm run deploy:client` - deploys client to Firebase Hosting
@@ -118,7 +120,7 @@ All ship parts:
 - have edges which can connect to other parts (3 or 4, see above)
 - have mass
 - have HP
-- when they reach 0 HP, have a chance to disappear or to detach from the ship
+- when they reach 0 HP, always either disappear (destroyed) or detach from the ship immediately; which of the two happens is governed by a configurable probability, not chance of it happening at all
 
 ### Ship composition
 

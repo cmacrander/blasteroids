@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { partType, activation } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
-import { applyEngineActivation } from "./playerInput";
+import { applyEngineActivation, parseAimAngle } from "./playerInput";
 
 function findPart(
   ship: ReturnType<typeof buildStarterShip>,
@@ -42,5 +42,18 @@ describe("applyEngineActivation", () => {
     applyEngineActivation(ship, undefined);
 
     expect(engine?.activation).toBe(activation.active);
+  });
+});
+
+describe("parseAimAngle", () => {
+  it("accepts a finite number", () => {
+    expect(parseAimAngle(1.5)).toBe(1.5);
+  });
+
+  it("rejects non-numbers and non-finite values", () => {
+    expect(parseAimAngle("1.5")).toBeUndefined();
+    expect(parseAimAngle(undefined)).toBeUndefined();
+    expect(parseAimAngle(NaN)).toBeUndefined();
+    expect(parseAimAngle(Infinity)).toBeUndefined();
   });
 });

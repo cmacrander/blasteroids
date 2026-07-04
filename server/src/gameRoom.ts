@@ -18,7 +18,8 @@ import {
   stepPhysics,
 } from "./physicsWorld";
 import { tickMovement, capSpeed } from "./movement";
-import { applyEngineActivation } from "./playerInput";
+import { tickRotation, capAngularSpeed } from "./rotation";
+import { applyEngineActivation, parseAimAngle } from "./playerInput";
 
 const fixedDtMs = 1000 / simulationHz;
 const fixedDt = 1 / simulationHz;
@@ -27,6 +28,7 @@ export class GameRoom extends Room<MatchState> {
   override maxClients = 8;
 
   private accumulatorMs = 0;
+  private targetAngles = new Map<string, number>();
 
   override async onCreate(): Promise<void> {
     await initPhysics();
@@ -39,6 +41,11 @@ export class GameRoom extends Room<MatchState> {
         if (ship) applyEngineActivation(ship, message);
       },
     );
+
+    this.onMessage(messageType.setAimAngle, (client, message: unknown) => {
+      const angle = parseAimAngle(message);
+      if (angle !== undefined) this.targetAngles.set(client.sessionId, angle);
+    });
 
     this.setSimulationInterval((deltaTime) => {
       this.onUpdate(deltaTime);
@@ -61,7 +68,10 @@ export class GameRoom extends Room<MatchState> {
       if (!ship) return;
       tickPowerBudget(ship, dt);
       const body = getShipBody(sessionId);
-      if (body) tickMovement(ship, body);
+      if (!body) return;
+      tickMovement(ship, body);
+      const targetAngle = this.targetAngles.get(sessionId) ?? body.rotation();
+      tickRotation(ship, body, targetAngle);
     });
 
     stepPhysics();
@@ -71,6 +81,7 @@ export class GameRoom extends Room<MatchState> {
       const body = getShipBody(sessionId);
       if (!ship || !body) return;
       capSpeed(body);
+      capAngularSpeed(body);
       const translation = body.translation();
       const velocity = body.linvel();
       ship.body.x = translation.x;
@@ -93,5 +104,6 @@ export class GameRoom extends Room<MatchState> {
     console.log(`${client.sessionId} left`);
     this.state.players.delete(client.sessionId);
     removeShipBody(client.sessionId);
+    this.targetAngles.delete(client.sessionId);
   }
 }

@@ -18,6 +18,12 @@ export function powerEfficiency(activeCoreCount: number): number {
   return 1 - (1 - baselineEfficiency) ** activeCoreCount;
 }
 
+export function activeCoreCount(ship: Ship): number {
+  return [...ship.parts.values()].filter(
+    (part) => part.partType === partType.core && part.powered,
+  ).length;
+}
+
 function drawRateFor(part: Part): number {
   if (part.partType === partType.engine) {
     if (part.activation === activation.boosted)
@@ -38,6 +44,9 @@ export function tickPowerBudget(ship: Ship, dt: number): void {
   const drawParts: Part[] = [];
 
   ship.parts.forEach((part) => {
+    // A destroyed part always either disappears or detaches immediately (see
+    // "Ship parts" in gameDesign.md), so it should never actually be sitting
+    // in ship.parts by the time this runs -- defensive, not expected to hit.
     if (part.hp <= 0) return;
     if (part.partType === partType.core) cores.push(part);
     else if (part.partType === partType.power) powerParts.push(part);

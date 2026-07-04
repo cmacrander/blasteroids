@@ -9,7 +9,7 @@ import {
   engineBoostThrustRate,
   maxSpeed,
 } from "@blasteroids/shared";
-import { powerEfficiency } from "./powerBudget";
+import { activeCoreCount, powerEfficiency } from "./powerBudget";
 
 // A part's facing direction in the ship's own unrotated frame, where +x is
 // east and +y is north (matches gameDesign.md's map orientation). Add the
@@ -21,17 +21,14 @@ const facingRadians: Record<number, number> = {
   [facing.west]: Math.PI,
 };
 
-function ratedThrust(part: Part): number {
+export function ratedThrust(part: Part): number {
   if (part.activation === activation.boosted) return engineBoostThrustRate;
   if (part.activation === activation.active) return engineThrustRate;
   return 0;
 }
 
 export function tickMovement(ship: Ship, body: RAPIER.RigidBody): void {
-  const activeCoreCount = [...ship.parts.values()].filter(
-    (part) => part.partType === partType.core && part.powered,
-  ).length;
-  const efficiency = powerEfficiency(activeCoreCount);
+  const efficiency = powerEfficiency(activeCoreCount(ship));
 
   let forceX = 0;
   let forceY = 0;
