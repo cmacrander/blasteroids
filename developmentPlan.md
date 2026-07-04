@@ -15,17 +15,17 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 
 ## Auth
 
-- [ ] Firebase project created and configured (client receives Firebase config)
-- [ ] User can sign in with Google and see their email address on screen
-- [ ] User can sign out
+- [x] Firebase project created and configured (client receives Firebase config)
+- [x] User can sign in with Google and see their email address on screen
+- [x] User can sign out
 
 ## Game shell
 
-- [ ] Signed-in user sees a start game screen with a "Quick play" button
-- [ ] Define the match room with a player cap (e.g. 8) so matches are instanced, not one shared world
-- [ ] "Quick play" uses Colyseus `joinOrCreate` (random matchmaking): join an open room or create one
-- [ ] Client joins the room and sees an empty canvas (map boundary visible, nothing else)
-- [ ] Room's instance ID is shown in the HUD (so it can be shared)
+- [x] Signed-in user sees a start game screen with a "Quick play" button
+- [x] Define the match room with a player cap (e.g. 8) so matches are instanced, not one shared world
+- [x] "Quick play" uses Colyseus `joinOrCreate` (random matchmaking): join an open room or create one
+- [x] Client joins the room and sees an empty canvas (map boundary visible, nothing else)
+- [ ] (Later) Room's instance ID is shown in the HUD (so it can be shared)
 - [ ] (Later) Start screen offers a field to join a specific instance ID via `joinById`
 
 ## Shared state schema

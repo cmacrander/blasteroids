@@ -1,3 +1,10 @@
+Setting up the sandbox terminal:
+
+```
+sudo apt install vim
+export EDITOR=vim
+```
+
 To publish ports through the sandbox:
 
 ```
