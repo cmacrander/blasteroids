@@ -12,7 +12,7 @@ Auth is Firebase Auth (Google login). The client authenticates and passes a Fire
 
 The game server runs the authoritative game loop via Colyseus's `onUpdate(deltaTime)`. Clients receive state diffs automatically. Physics run server-side only using Rapier (Rust/WASM via `@dimforge/rapier2d`). Clients interpolate remote entities and locally predict their own ship for responsive controls. See "Simulation and networking" below for the tick model, prediction, and reconciliation.
 
-The visual layer uses an HTML Canvas 2D context. Each game part has a PNG sprite of the same size (one square unit). Each animation frame, the canvas is cleared and all visible objects are redrawn with `drawImage()` and a rotation transform. React renders only the UI overlay (HUD, menus, scores) on top of the canvas.
+The visual layer uses an HTML Canvas 2D context. Each game part has a PNG sprite one unit wide; most are exactly one unit tall, but a sprite may be taller to show an effect extending past the part (e.g. an active/boosted engine's exhaust plume) without changing its collider. The renderer always scales sprite width to one unit and derives height from the image's own aspect ratio, anchoring the sprite's bottom edge (not its center) to the part's position, so extra height trails behind rather than being squeezed into a 1x1 box. Each animation frame, the canvas is cleared and all visible objects are redrawn with `drawImage()` and a rotation transform. React renders only the UI overlay (HUD, menus, scores) on top of the canvas.
 
 Tests focus on:
 

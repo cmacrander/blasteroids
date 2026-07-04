@@ -1,8 +1,9 @@
 // Canvas renderer: draws every ship's parts each frame, camera on the local player.
 import { useEffect, useRef } from "react";
-import type { MatchState, PartType } from "@blasteroids/shared";
+import type { MatchState, Part } from "@blasteroids/shared";
 import {
   partType,
+  activation,
   facing,
   mapWidth,
   mapHeight,
@@ -11,12 +12,40 @@ import {
 
 const pixelsPerUnit = 40; // screen pixels per world unit (one part is one unit)
 
-const spriteUrls: Record<PartType, string> = {
-  [partType.core]: "/sprites/core.png",
-  [partType.power]: "/sprites/power.png",
-  [partType.engine]: "/sprites/engine.png",
-  [partType.laser]: "/sprites/laser.png",
-};
+// Engine sprites while active/boosted are taller than one unit: they include an
+// exhaust plume extending past the nozzle. Non-engine sprites are plain 1x1 tiles.
+const spriteUrls = {
+  core: "/sprites/core.png",
+  power: "/sprites/power.png",
+  engine: "/sprites/engine.png",
+  engineActive: "/sprites/engineActive.png",
+  engineBoosted: "/sprites/engineBoosted.png",
+  laser: "/sprites/laser.png",
+} as const;
+type SpriteKey = keyof typeof spriteUrls;
+const spriteKeys: SpriteKey[] = [
+  "core",
+  "power",
+  "engine",
+  "engineActive",
+  "engineBoosted",
+  "laser",
+];
+
+// The plume only makes sense to show if the engine is both requesting that
+// activation and actually receiving power this tick (see power budgeting).
+function spriteKeyFor(part: Part): SpriteKey {
+  if (part.partType === partType.engine) {
+    if (part.powered && part.activation === activation.boosted)
+      return "engineBoosted";
+    if (part.powered && part.activation === activation.active)
+      return "engineActive";
+    return "engine";
+  }
+  if (part.partType === partType.core) return "core";
+  if (part.partType === partType.power) return "power";
+  return "laser";
+}
 
 // Canonical sprites face north; this rotates each part to its stored facing.
 const facingRadians: Record<number, number> = {
@@ -157,11 +186,16 @@ export function GameCanvas({ state, sessionId }: Props) {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const images: Record<number, HTMLImageElement> = {};
-    for (const [type, url] of Object.entries(spriteUrls)) {
-      const image = new Image();
-      image.src = url;
-      images[Number(type)] = image;
+    const images: Record<SpriteKey, HTMLImageElement> = {
+      core: new Image(),
+      power: new Image(),
+      engine: new Image(),
+      engineActive: new Image(),
+      engineBoosted: new Image(),
+      laser: new Image(),
+    };
+    for (const key of spriteKeys) {
+      images[key].src = spriteUrls[key];
     }
 
     let animId: number;
@@ -200,13 +234,21 @@ export function GameCanvas({ state, sessionId }: Props) {
         const sin = Math.sin(angle);
 
         ship.parts.forEach((part) => {
-          const image = images[part.partType];
-          if (!image?.complete || image.naturalWidth === 0) return;
+          const image = images[spriteKeyFor(part)];
+          if (!image.complete || image.naturalWidth === 0) return;
 
           // Rotate the part's local offset into world space, then to screen.
           const worldX = ship.body.x + part.offsetX * cos - part.offsetY * sin;
           const worldY = ship.body.y + part.offsetX * sin + part.offsetY * cos;
           const orientation = angle + (facingRadians[part.facing] ?? 0);
+
+          // Sprites are always exactly one unit wide; taller ones (like an
+          // engine's exhaust plume) extend past the part's south edge rather
+          // than being centered, so the extra height reads as trailing behind
+          // the nozzle instead of being squeezed to fit a 1x1 box.
+          const destWidth = pixelsPerUnit;
+          const destHeight =
+            pixelsPerUnit * (image.naturalHeight / image.naturalWidth);
 
           ctx.save();
           ctx.translate(toScreenX(worldX), toScreenY(worldY));
@@ -214,10 +256,10 @@ export function GameCanvas({ state, sessionId }: Props) {
           ctx.globalAlpha = part.powered ? 1 : 0.6;
           ctx.drawImage(
             image,
-            -pixelsPerUnit / 2,
-            -pixelsPerUnit / 2,
-            pixelsPerUnit,
-            pixelsPerUnit,
+            -destWidth / 2,
+            pixelsPerUnit / 2 - destHeight,
+            destWidth,
+            destHeight,
           );
           ctx.restore();
         });

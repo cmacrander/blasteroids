@@ -14,7 +14,7 @@ import {
 } from "@blasteroids/shared";
 
 // Diminishing returns: each active core beyond the first adds a shrinking bonus.
-function powerEfficiency(activeCoreCount: number): number {
+export function powerEfficiency(activeCoreCount: number): number {
   return 1 - (1 - baselineEfficiency) ** activeCoreCount;
 }
 

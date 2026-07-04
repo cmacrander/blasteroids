@@ -6,10 +6,19 @@ import {
   mapWidth,
   mapHeight,
   simulationHz,
+  messageType,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import { tickPowerBudget } from "./powerBudget";
-import { initPhysics, createShipBody, removeShipBody } from "./physicsWorld";
+import {
+  initPhysics,
+  createShipBody,
+  removeShipBody,
+  getShipBody,
+  stepPhysics,
+} from "./physicsWorld";
+import { tickMovement, capSpeed } from "./movement";
+import { applyEngineActivation } from "./playerInput";
 
 const fixedDtMs = 1000 / simulationHz;
 const fixedDt = 1 / simulationHz;
@@ -22,6 +31,15 @@ export class GameRoom extends Room<MatchState> {
   override async onCreate(): Promise<void> {
     await initPhysics();
     this.setState(new MatchState());
+
+    this.onMessage(
+      messageType.setEngineActivation,
+      (client, message: unknown) => {
+        const ship = this.state.players.get(client.sessionId)?.ship;
+        if (ship) applyEngineActivation(ship, message);
+      },
+    );
+
     this.setSimulationInterval((deltaTime) => {
       this.onUpdate(deltaTime);
     });
@@ -38,8 +56,28 @@ export class GameRoom extends Room<MatchState> {
   }
 
   private tick(dt: number): void {
-    this.state.players.forEach((player) => {
-      if (player.ship) tickPowerBudget(player.ship, dt);
+    this.state.players.forEach((player, sessionId) => {
+      const ship = player.ship;
+      if (!ship) return;
+      tickPowerBudget(ship, dt);
+      const body = getShipBody(sessionId);
+      if (body) tickMovement(ship, body);
+    });
+
+    stepPhysics();
+
+    this.state.players.forEach((player, sessionId) => {
+      const ship = player.ship;
+      const body = getShipBody(sessionId);
+      if (!ship || !body) return;
+      capSpeed(body);
+      const translation = body.translation();
+      const velocity = body.linvel();
+      ship.body.x = translation.x;
+      ship.body.y = translation.y;
+      ship.body.angle = body.rotation();
+      ship.body.vx = velocity.x;
+      ship.body.vy = velocity.y;
     });
   }
 
@@ -48,7 +86,7 @@ export class GameRoom extends Room<MatchState> {
     const player = new Player();
     player.ship = buildStarterShip(mapWidth / 2, mapHeight / 2);
     this.state.players.set(client.sessionId, player);
-    createShipBody(client.sessionId, player.ship.body.x, player.ship.body.y);
+    createShipBody(client.sessionId, player.ship);
   }
 
   override onLeave(client: Client): void {

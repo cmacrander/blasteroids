@@ -1,7 +1,9 @@
 // Game view: canvas with a HUD overlay.
+import { useEffect } from "react";
 import type { Room } from "colyseus.js";
 import type { MatchState } from "@blasteroids/shared";
 import { GameCanvas } from "./GameCanvas";
+import { attachEngineInput } from "./engineInput";
 
 interface Props {
   room: Room<MatchState>;
@@ -9,6 +11,8 @@ interface Props {
 }
 
 export function GameView({ room, onExit }: Props) {
+  useEffect(() => attachEngineInput(room), [room]);
+
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
       <GameCanvas state={room.state} sessionId={room.sessionId} />
