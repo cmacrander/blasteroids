@@ -123,6 +123,12 @@ export const asteroidMaxCellCount = 24;
 export const asteroidMinSpeed = 0.5; // world units/s
 export const asteroidMaxSpeed = 2; // world units/s -- always slow vs ships (maxSpeed 30)
 
+// Hard cap on colliding entities -- ship parts + live rock cells + free-
+// floating parts -- bounding Rapier CPU and Colyseus bandwidth (see "Entity
+// scale and colliding-entity cap" in gameDesign.md). Asteroid replenishment
+// pauses while a new asteroid might not fit under the cap.
+export const collidingEntityCap = 600;
+
 // Asteroids drift forever and never bounce off the boundary walls (that's
 // the same kinematic-body property that gives ships no momentum transfer on
 // impact -- see physicsWorld.ts), so the field would otherwise slowly leak

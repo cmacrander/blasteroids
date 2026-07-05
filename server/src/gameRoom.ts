@@ -29,6 +29,7 @@ import {
   isFarOutOfBounds,
 } from "./randomAsteroid";
 import { isAsteroidDestroyed } from "./asteroidShell";
+import { canSpawnAsteroid } from "./entityCount";
 import { tickPowerBudget } from "./powerBudget";
 import {
   initPhysics,
@@ -62,6 +63,7 @@ export class GameRoom extends Room<MatchState> {
   private targetAngles = new Map<string, number>();
   private nextAsteroidId = 0;
   private nextPartId = 0;
+  private targetAsteroidCount = 0;
 
   override async onCreate(): Promise<void> {
     await initPhysics();
@@ -74,6 +76,7 @@ export class GameRoom extends Room<MatchState> {
       mapHeight / 2,
       15,
     );
+    this.targetAsteroidCount = spawnPoints.length;
     for (const point of spawnPoints) {
       this.spawnAsteroid(
         point.x,
@@ -243,10 +246,11 @@ export class GameRoom extends Room<MatchState> {
   // Asteroids drift forever and never bounce off the walls (see
   // randomAsteroid.ts), so the field would otherwise slowly leak out of
   // bounds, and a fully-mined asteroid would otherwise just sit in state
-  // forever as an empty shell. Removing either kind immediately spawns one
-  // replacement entering from just outside an edge, aimed back in -- a
-  // direct one-for-one swap, so the in-map count stays exactly constant
-  // rather than merely trending toward some average.
+  // forever as an empty shell. Departures are removed, then the field is
+  // topped back up to its initial size -- but only while a replacement is
+  // guaranteed to fit under the colliding-entity cap, so a busy match
+  // (many ship parts and floating parts) pauses replenishment and resumes
+  // once destruction frees room.
   private tickAsteroidField(): void {
     const departed: string[] = [];
     this.state.asteroids.forEach((asteroid, id) => {
@@ -265,7 +269,13 @@ export class GameRoom extends Room<MatchState> {
     for (const id of departed) {
       removeAsteroidBody(id);
       this.state.asteroids.delete(id);
+    }
 
+    let spawned = 0;
+    while (
+      this.state.asteroids.size < this.targetAsteroidCount &&
+      canSpawnAsteroid(this.state)
+    ) {
       const entry = randomAsteroidEntry(asteroidEntryMargin);
       this.spawnAsteroid(
         entry.x,
@@ -273,13 +283,14 @@ export class GameRoom extends Room<MatchState> {
         { x: entry.vx, y: entry.vy },
         randomAsteroidCellCount(),
       );
+      spawned++;
     }
 
     // Same reason as the initial-spawn step in onCreate: a freshly created
     // collider isn't raycast-queryable until the next step, and any just
     // spawned above would otherwise have to wait a full tick to become
     // hittable.
-    if (departed.length > 0) stepPhysics();
+    if (spawned > 0) stepPhysics();
   }
 
   private spawnAsteroid(
