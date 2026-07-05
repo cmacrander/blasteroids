@@ -77,6 +77,14 @@ const facingRadians: Record<number, number> = {
   [facing.west]: Math.PI / 2,
 };
 
+// Free-floating parts always draw as the plain (inactive) sprite.
+function floatingSpriteKey(type: number): SpriteKey {
+  if (type === partType.power) return "power";
+  if (type === partType.engine) return "engine";
+  if (type === partType.laser) return "laser";
+  return "core";
+}
+
 // Two depth layers of stars, fixed in world space so they scroll as the camera moves.
 // A parallax factor below 1 makes the far layer appear to drift slower than the near one.
 interface StarLayer {
@@ -503,6 +511,31 @@ export function GameCanvas({ room, state, sessionId, sim }: Props) {
           ctx.restore();
         });
       });
+
+      // Detached parts drift free until scavenged; drawn dimmer than a live
+      // ship part so they read as debris.
+      state.floatingParts.forEach((floating, floatingId) => {
+        const image = images[floatingSpriteKey(floating.partType)];
+        if (!image.complete || image.naturalWidth === 0) return;
+
+        const pose =
+          sim?.remotePose(`float:${floatingId}`, now) ?? floating.body;
+        const orientation = pose.angle + (facingRadians[floating.facing] ?? 0);
+
+        ctx.save();
+        ctx.translate(toScreenX(pose.x), toScreenY(pose.y));
+        ctx.rotate(-orientation);
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(
+          image,
+          -pixelsPerUnit / 2,
+          -pixelsPerUnit / 2,
+          pixelsPerUnit,
+          pixelsPerUnit,
+        );
+        ctx.restore();
+      });
+      ctx.globalAlpha = 1;
 
       explosionsRef.current = explosionsRef.current.filter((explosion) => {
         const age = now - explosion.spawnedAt;

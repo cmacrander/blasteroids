@@ -8,7 +8,7 @@ import {
   createShipBody,
   createAsteroidBody,
   onAsteroidCellDestroyed,
-  raycastAsteroids,
+  raycastLaser,
   stepPhysics,
 } from "./physicsWorld";
 
@@ -38,10 +38,10 @@ describe("asteroid collision shell", () => {
     createAsteroidBody("shell-test-1", asteroid);
     stepPhysics(); // Rapier's query structures need one step to register new colliders
 
-    const hit = raycastAsteroids({ x: 40, y: 50 }, { x: 1, y: 0 }, 20);
+    const hit = raycastLaser({ x: 40, y: 50 }, { x: 1, y: 0 }, 20, "nobody");
 
-    expect(hit).not.toBeNull();
-    expect(hit?.asteroidId).toBe("shell-test-1");
+    if (hit?.kind !== "asteroid") throw new Error("expected an asteroid hit");
+    expect(hit.asteroidId).toBe("shell-test-1");
   });
 
   it("removes a destroyed cell's collider and promotes a newly-exposed neighbor", () => {
@@ -59,14 +59,15 @@ describe("asteroid collision shell", () => {
     // A ray that would have hit the now-destroyed west-edge cell should
     // instead pass through to hit its interior neighbor (col 1), which
     // should have been promoted into the shell.
-    const hit = raycastAsteroids(
+    const hit = raycastLaser(
       { x: 60, y: 50 + asteroid.originY + 1 },
       { x: 1, y: 0 },
       20,
+      "nobody",
     );
 
-    expect(hit).not.toBeNull();
-    expect(hit?.asteroidId).toBe("shell-test-2");
-    expect(hit?.cellIndex).toBe(1 * asteroid.gridWidth + 1); // col 1, promoted
+    if (hit?.kind !== "asteroid") throw new Error("expected an asteroid hit");
+    expect(hit.asteroidId).toBe("shell-test-2");
+    expect(hit.cellIndex).toBe(1 * asteroid.gridWidth + 1); // col 1, promoted
   });
 });

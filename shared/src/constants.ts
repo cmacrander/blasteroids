@@ -147,6 +147,15 @@ export const partBuildCost = 20;
 // HP a part has when freshly built or spawned.
 export const partMaxHp = 100;
 
+// When a ship part reaches 0 HP it always either detaches into a scavengeable
+// free-floating part (this probability) or is destroyed outright (see "Ship
+// parts" in gameDesign.md).
+export const partDetachChance = 0.3;
+
+// A detached part re-enters the world at half strength; this is the HP it
+// carries as a floating part and brings along when scavenged.
+export const detachedPartHp = 50;
+
 // Defragmentation downtime: the ship drifts with engines and lasers off (and
 // stays vulnerable) for a duration that scales with ship size.
 export const defragSecondsPerPart = 0.1;

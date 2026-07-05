@@ -1,8 +1,15 @@
-// Laser-vs-asteroid damage: raycast to the shell, then grid-march the beam
-// across the local cell grid (see "Harvesting" in gameDesign.md).
+// Laser damage: raycast to the nearest target, then either grid-march an
+// asteroid's cell grid (see "Harvesting" in gameDesign.md) or damage the
+// single struck ship part (see "Ship to ship combat"). Beams stop at the
+// first ship part; only asteroids are pierced.
 import type RAPIER from "@dimforge/rapier2d-compat";
-import type { MapSchema } from "@colyseus/schema";
-import type { Asteroid, Part, Player, Ship } from "@blasteroids/shared";
+import type {
+  Asteroid,
+  MatchState,
+  Part,
+  Player,
+  Ship,
+} from "@blasteroids/shared";
 import {
   partType,
   activation,
@@ -16,7 +23,7 @@ import {
   powerEfficiency,
   facingWorldRadians,
 } from "@blasteroids/shared";
-import { raycastAsteroids, onAsteroidCellDestroyed } from "./physicsWorld";
+import { raycastLaser, onAsteroidCellDestroyed } from "./physicsWorld";
 
 function ratedDamage(part: Part): number {
   if (part.activation === activation.boosted) return laserBoostDamageRate;
@@ -108,12 +115,34 @@ function cellWorldPosition(asteroid: Asteroid, index: number): ExplosionSpawn {
   };
 }
 
-// Fractional HP not yet applied to the integer `cells` schema field, keyed by
-// "asteroidId:cellIndex". Needed because per-tick damage (a few tenths of an
-// HP) would otherwise round away to nothing against a uint8 field every tick.
+// A ship part struck by a beam whose hp just reached 0; the room resolves
+// these after the tick (detach-or-destroy roll, group cut, collider rebuild).
+export interface ZeroedPart {
+  sessionId: string;
+  partKey: string;
+}
+
+export interface LaserTickResult {
+  explosions: ExplosionSpawn[];
+  zeroedParts: ZeroedPart[];
+  damagedShipIds: string[];
+}
+
+// Fractional HP not yet applied to the integer hp schema fields, keyed by
+// "asteroidId:cellIndex" or "ship:sessionId:partKey". Needed because per-tick
+// damage (a few tenths of an HP) would otherwise round away to nothing
+// against an integer field every tick.
 const pendingDamage = new Map<string, number>();
 
-function applyDamage(
+// Applies fractional damage, returning the whole-number amount that landed.
+function accumulateDamage(key: string, rawDamage: number): number {
+  const total = (pendingDamage.get(key) ?? 0) + rawDamage;
+  const wholeDamage = Math.floor(total);
+  pendingDamage.set(key, total - wholeDamage);
+  return wholeDamage;
+}
+
+function applyCellDamage(
   asteroidId: string,
   asteroid: Asteroid,
   index: number,
@@ -125,9 +154,7 @@ function applyDamage(
   if (hp === undefined || hp <= 0) return;
 
   const key = `${asteroidId}:${index.toString()}`;
-  const total = (pendingDamage.get(key) ?? 0) + rawDamage;
-  const wholeDamage = Math.floor(total);
-  pendingDamage.set(key, total - wholeDamage);
+  const wholeDamage = accumulateDamage(key, rawDamage);
   if (wholeDamage <= 0) return;
 
   const newHp = Math.max(0, hp - wholeDamage);
@@ -147,14 +174,56 @@ function applyDamage(
   }
 }
 
+// Damage to a struck ship part: same fractional accumulation as asteroid
+// cells; hp bottoms out at 0 here, and the room resolves the removal (roll,
+// group cut, colliders) after the whole tick's damage is in.
+function applyPartDamage(
+  victimId: string,
+  victim: Ship,
+  partKey: string,
+  rawDamage: number,
+  result: LaserTickResult,
+): void {
+  const part = victim.parts.get(partKey);
+  if (!part || part.hp <= 0) return;
+
+  const key = `ship:${victimId}:${partKey}`;
+  const wholeDamage = accumulateDamage(key, rawDamage);
+  if (wholeDamage <= 0) return;
+
+  const newHp = Math.max(0, part.hp - wholeDamage);
+  part.hp = newHp;
+  result.damagedShipIds.push(victimId);
+
+  if (Math.random() < explosionChance) {
+    const cos = Math.cos(victim.body.angle);
+    const sin = Math.sin(victim.body.angle);
+    result.explosions.push({
+      x: victim.body.x + part.offsetX * cos - part.offsetY * sin,
+      y: victim.body.y + part.offsetX * sin + part.offsetY * cos,
+    });
+  }
+
+  if (newHp <= 0) {
+    result.zeroedParts.push({ sessionId: victimId, partKey });
+    pendingDamage.delete(key);
+  }
+}
+
 export function tickLaserDamage(
+  sessionId: string,
   player: Player,
-  ship: Ship,
   body: RAPIER.RigidBody,
-  asteroids: MapSchema<Asteroid>,
+  state: MatchState,
   dt: number,
-): ExplosionSpawn[] {
-  const explosions: ExplosionSpawn[] = [];
+): LaserTickResult {
+  const result: LaserTickResult = {
+    explosions: [],
+    zeroedParts: [],
+    damagedShipIds: [],
+  };
+  const ship = player.ship;
+  if (!ship) return result;
   const efficiency = powerEfficiency(activeCoreCount(ship));
 
   const rotation = body.rotation();
@@ -171,14 +240,24 @@ export function tickLaserDamage(
     const originX = translation.x + part.offsetX * cos - part.offsetY * sin;
     const originY = translation.y + part.offsetX * sin + part.offsetY * cos;
 
-    const hit = raycastAsteroids(
+    const hit = raycastLaser(
       { x: originX, y: originY },
       { x: dirX, y: dirY },
       laserRange,
+      sessionId,
     );
     if (!hit) return;
 
-    const asteroid = asteroids.get(hit.asteroidId);
+    const damage = ratedDamage(part) * efficiency * dt;
+
+    if (hit.kind === "ship") {
+      const victim = state.players.get(hit.sessionId)?.ship;
+      if (!victim) return;
+      applyPartDamage(hit.sessionId, victim, hit.partKey, damage, result);
+      return;
+    }
+
+    const asteroid = state.asteroids.get(hit.asteroidId);
     if (!asteroid) return;
 
     // Transform the hit point and beam direction into the asteroid's local,
@@ -205,11 +284,17 @@ export function tickLaserDamage(
       asteroid.gridHeight,
     );
 
-    const damage = ratedDamage(part) * efficiency * dt;
     for (const index of cellIndices) {
-      applyDamage(hit.asteroidId, asteroid, index, damage, player, explosions);
+      applyCellDamage(
+        hit.asteroidId,
+        asteroid,
+        index,
+        damage,
+        player,
+        result.explosions,
+      );
     }
   });
 
-  return explosions;
+  return result;
 }

@@ -178,6 +178,9 @@ export function createClientSim(room: Room<MatchState>): ClientSim {
     room.state.asteroids.forEach((asteroid, id) => {
       record(`asteroid:${id}`, asteroid.body, t);
     });
+    room.state.floatingParts.forEach((floating, id) => {
+      record(`float:${id}`, floating.body, t);
+    });
   }
 
   function record(

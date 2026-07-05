@@ -18,6 +18,8 @@ import {
   bestDefragArrangement,
   applyArrangement,
   defragDurationSeconds,
+  FloatingPart,
+  detachedPartHp,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import {
@@ -45,7 +47,12 @@ import {
 } from "./physicsWorld";
 import { tickMovement, capSpeed } from "./movement";
 import { tickRotation, capAngularSpeed } from "./rotation";
-import { tickLaserDamage, type ExplosionSpawn } from "./laserDamage";
+import {
+  tickLaserDamage,
+  type ExplosionSpawn,
+  type ZeroedPart,
+} from "./laserDamage";
+import { resolveDestroyedParts, type RemovedPart } from "./shipDamage";
 import {
   applyActivation,
   parsePartType,
@@ -63,7 +70,10 @@ export class GameRoom extends Room<MatchState> {
   private targetAngles = new Map<string, number>();
   private nextAsteroidId = 0;
   private nextPartId = 0;
+  private nextFloatingId = 0;
   private targetAsteroidCount = 0;
+  // Last player to laser each victim, for kill credit (see "Game over").
+  private lastAttacker = new Map<string, string>();
 
   override async onCreate(): Promise<void> {
     await initPhysics();
@@ -174,6 +184,7 @@ export class GameRoom extends Room<MatchState> {
 
   private tick(dt: number): void {
     const explosions: ExplosionSpawn[] = [];
+    const zeroedParts: ZeroedPart[] = [];
     this.state.players.forEach((player, sessionId) => {
       const ship = player.ship;
       if (!ship) return;
@@ -187,10 +198,15 @@ export class GameRoom extends Room<MatchState> {
       tickMovement(ship, body);
       const targetAngle = this.targetAngles.get(sessionId) ?? body.rotation();
       tickRotation(ship, body, targetAngle);
-      explosions.push(
-        ...tickLaserDamage(player, ship, body, this.state.asteroids, dt),
-      );
+      const lasers = tickLaserDamage(sessionId, player, body, this.state, dt);
+      explosions.push(...lasers.explosions);
+      zeroedParts.push(...lasers.zeroedParts);
+      for (const victimId of lasers.damagedShipIds) {
+        this.lastAttacker.set(victimId, sessionId);
+      }
     });
+
+    this.resolveZeroedParts(zeroedParts);
 
     // One batched broadcast per tick rather than one per explosion -- keeps
     // this a fixed-cost message regardless of how many players are mining.
@@ -223,7 +239,73 @@ export class GameRoom extends Room<MatchState> {
       asteroid.body.y = translation.y;
     });
 
+    this.tickFloatingParts(dt);
     this.tickAsteroidField();
+  }
+
+  // Applies the detach-or-destroy roll and group-cut rule to every part that
+  // reached 0 HP this tick, spawning FloatingParts for the detached ones and
+  // rebuilding each affected ship's colliders once.
+  private resolveZeroedParts(zeroedParts: ZeroedPart[]): void {
+    const keysByVictim = new Map<string, string[]>();
+    for (const zeroed of zeroedParts) {
+      const keys = keysByVictim.get(zeroed.sessionId) ?? [];
+      keys.push(zeroed.partKey);
+      keysByVictim.set(zeroed.sessionId, keys);
+    }
+
+    for (const [victimId, keys] of keysByVictim) {
+      const ship = this.state.players.get(victimId)?.ship;
+      if (!ship) continue;
+      const removed = resolveDestroyedParts(ship, keys, Math.random);
+      this.spawnDetachedParts(ship, removed);
+      resetShipColliders(victimId, ship);
+    }
+  }
+
+  // Detached parts become free-floating, scavengeable, and non-colliding,
+  // keeping the ship's velocity and orientation (see "Scavenging").
+  private spawnDetachedParts(ship: Ship, removed: RemovedPart[]): void {
+    const cos = Math.cos(ship.body.angle);
+    const sin = Math.sin(ship.body.angle);
+    for (const entry of removed) {
+      if (!entry.detached) continue;
+      const floating = new FloatingPart();
+      floating.partType = entry.part.partType;
+      floating.facing = entry.part.facing;
+      floating.hp = detachedPartHp;
+      floating.body.x =
+        ship.body.x + entry.part.offsetX * cos - entry.part.offsetY * sin;
+      floating.body.y =
+        ship.body.y + entry.part.offsetX * sin + entry.part.offsetY * cos;
+      floating.body.angle = ship.body.angle;
+      floating.body.vx = ship.body.vx;
+      floating.body.vy = ship.body.vy;
+      this.state.floatingParts.set(
+        `float-${String(this.nextFloatingId++)}`,
+        floating,
+      );
+    }
+  }
+
+  // Floating parts collide with nothing, so they are plain state, not Rapier
+  // bodies: drift them manually and drop any that leave the map for good.
+  private tickFloatingParts(dt: number): void {
+    const departed: string[] = [];
+    this.state.floatingParts.forEach((floating, id) => {
+      floating.body.x += floating.body.vx * dt;
+      floating.body.y += floating.body.vy * dt;
+      if (
+        isFarOutOfBounds(
+          floating.body.x,
+          floating.body.y,
+          asteroidDespawnMargin,
+        )
+      ) {
+        departed.push(id);
+      }
+    });
+    for (const id of departed) this.state.floatingParts.delete(id);
   }
 
   // Counts down defrag downtime; on completion, rearranges the surviving

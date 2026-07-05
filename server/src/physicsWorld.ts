@@ -19,8 +19,13 @@ const wallThickness = 5;
 let world: RAPIER.World | undefined;
 const shipBodies = new Map<string, RAPIER.RigidBody>();
 // Per-ship collider handles keyed by part key, so a single part's collider
-// can be added (building, scavenging) or removed (destruction) later.
+// can be added (building, scavenging) or removed (destruction) later, plus
+// the reverse lookup lasers need to resolve a raycast hit to a ship part.
 const shipPartColliders = new Map<string, Map<string, RAPIER.Collider>>();
+const colliderToShipPart = new Map<
+  number,
+  { sessionId: string; partKey: string }
+>();
 
 // Rapier's WASM module must finish loading before any World/RigidBody is created.
 export async function initPhysics(): Promise<void> {
@@ -83,16 +88,24 @@ export function createShipBody(
   // actual part layout (see "Ship composition" in gameDesign.md).
   const partColliders = new Map<string, RAPIER.Collider>();
   ship.parts.forEach((part, key) => {
-    const collider = requireWorld().createCollider(
-      partColliderDesc(part),
-      body,
-    );
-    partColliders.set(key, collider);
+    registerPartCollider(sessionId, key, part, body, partColliders);
   });
 
   shipBodies.set(sessionId, body);
   shipPartColliders.set(sessionId, partColliders);
   return body;
+}
+
+function registerPartCollider(
+  sessionId: string,
+  partKey: string,
+  part: { offsetX: number; offsetY: number },
+  body: RAPIER.RigidBody,
+  partColliders: Map<string, RAPIER.Collider>,
+): void {
+  const collider = requireWorld().createCollider(partColliderDesc(part), body);
+  partColliders.set(partKey, collider);
+  colliderToShipPart.set(collider.handle, { sessionId, partKey });
 }
 
 function partColliderDesc(part: {
@@ -115,8 +128,7 @@ export function addShipPartCollider(
   const body = shipBodies.get(sessionId);
   const partColliders = shipPartColliders.get(sessionId);
   if (!body || !partColliders) return;
-  const collider = requireWorld().createCollider(partColliderDesc(part), body);
-  partColliders.set(partKey, collider);
+  registerPartCollider(sessionId, partKey, part, body, partColliders);
 }
 
 // Replaces a ship body's colliders to match its current part layout (after
@@ -127,21 +139,24 @@ export function resetShipColliders(sessionId: string, ship: Ship): void {
   const partColliders = shipPartColliders.get(sessionId);
   if (!body || !partColliders) return;
   for (const collider of partColliders.values()) {
+    colliderToShipPart.delete(collider.handle);
     requireWorld().removeCollider(collider, true);
   }
   partColliders.clear();
   ship.parts.forEach((part, key) => {
-    const collider = requireWorld().createCollider(
-      partColliderDesc(part),
-      body,
-    );
-    partColliders.set(key, collider);
+    registerPartCollider(sessionId, key, part, body, partColliders);
   });
 }
 
 export function removeShipBody(sessionId: string): void {
   const body = shipBodies.get(sessionId);
   if (!body) return;
+  const partColliders = shipPartColliders.get(sessionId);
+  if (partColliders) {
+    for (const collider of partColliders.values()) {
+      colliderToShipPart.delete(collider.handle);
+    }
+  }
   requireWorld().removeRigidBody(body);
   shipBodies.delete(sessionId);
   shipPartColliders.delete(sessionId);
@@ -257,19 +272,19 @@ export function removeAsteroidBody(asteroidId: string): void {
   asteroidShellColliders.delete(asteroidId);
 }
 
-export interface AsteroidRayHit {
-  asteroidId: string;
-  cellIndex: number;
-  toi: number;
-}
+export type LaserRayHit =
+  | { kind: "asteroid"; asteroidId: string; cellIndex: number; toi: number }
+  | { kind: "ship"; sessionId: string; partKey: string; toi: number };
 
-// Raycasts against asteroid shells only (ships/walls are excluded via the
-// collider-membership predicate), for laser grid-march damage.
-export function raycastAsteroids(
+// Raycasts against everything a laser can damage -- asteroid shells and
+// other ships' part colliders -- excluding the firing ship itself and the
+// boundary walls via the collider-membership predicate.
+export function raycastLaser(
   origin: { x: number; y: number },
   dir: { x: number; y: number },
   maxToi: number,
-): AsteroidRayHit | null {
+  excludeSessionId: string,
+): LaserRayHit | null {
   const ray = new RAPIER.Ray(origin, dir);
   const hit = requireWorld().castRay(
     ray,
@@ -279,16 +294,31 @@ export function raycastAsteroids(
     undefined,
     undefined,
     undefined,
-    (collider) => colliderToAsteroidCell.has(collider.handle),
+    (collider) => {
+      if (colliderToAsteroidCell.has(collider.handle)) return true;
+      const shipPart = colliderToShipPart.get(collider.handle);
+      return shipPart !== undefined && shipPart.sessionId !== excludeSessionId;
+    },
   );
   if (!hit) return null;
 
-  const info = colliderToAsteroidCell.get(hit.collider.handle);
-  if (!info) return null;
-
-  return {
-    asteroidId: info.asteroidId,
-    cellIndex: info.cellIndex,
-    toi: hit.timeOfImpact,
-  };
+  const asteroidCell = colliderToAsteroidCell.get(hit.collider.handle);
+  if (asteroidCell) {
+    return {
+      kind: "asteroid",
+      asteroidId: asteroidCell.asteroidId,
+      cellIndex: asteroidCell.cellIndex,
+      toi: hit.timeOfImpact,
+    };
+  }
+  const shipPart = colliderToShipPart.get(hit.collider.handle);
+  if (shipPart) {
+    return {
+      kind: "ship",
+      sessionId: shipPart.sessionId,
+      partKey: shipPart.partKey,
+      toi: hit.timeOfImpact,
+    };
+  }
+  return null;
 }

@@ -1,11 +1,10 @@
 // Unit tests for the pure grid-march geometry (marchGrid) and the end-to-end tick.
 import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
-import { MapSchema } from "@colyseus/schema";
-import type { Asteroid } from "@blasteroids/shared";
 import {
   partType,
   activation,
   suppliesPerCellDestroyed,
+  MatchState,
   Player,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
@@ -99,11 +98,12 @@ describe("tickLaserDamage", () => {
     createAsteroidBody("laser-damage-test-asteroid", asteroid);
     stepPhysics(); // let Rapier's query structures register the new colliders
 
-    const asteroids = new MapSchema<Asteroid>();
-    asteroids.set("laser-damage-test-asteroid", asteroid);
+    const state = new MatchState();
+    state.asteroids.set("laser-damage-test-asteroid", asteroid);
 
     const player = new Player();
     player.ship = ship;
+    state.players.set("laser-damage-test", player);
 
     const targetIndex = 1 * asteroid.gridWidth + 1; // a cell facing the ship
     const startingHp = asteroid.cells[targetIndex];
@@ -116,7 +116,7 @@ describe("tickLaserDamage", () => {
     // check supplies against however many cells actually died.
     let destroyedAt = -1;
     for (let i = 0; i < 3000; i++) {
-      tickLaserDamage(player, ship, body, asteroids, 1 / 60);
+      tickLaserDamage("laser-damage-test", player, body, state, 1 / 60);
       if ((asteroid.cells[targetIndex] ?? 0) <= 0) {
         destroyedAt = i;
         break;
@@ -131,7 +131,7 @@ describe("tickLaserDamage", () => {
 
     // Ticking further after all reachable cells are dead shouldn't award more.
     for (let i = 0; i < 10; i++) {
-      tickLaserDamage(player, ship, body, asteroids, 1 / 60);
+      tickLaserDamage("laser-damage-test", player, body, state, 1 / 60);
     }
     const finalDestroyedCount = asteroid.cells.filter((hp) => hp <= 0).length;
     expect(player.supplies).toBe(
@@ -148,16 +148,17 @@ describe("tickLaserDamage", () => {
     createAsteroidBody("laser-inactive-test-asteroid", asteroid);
     stepPhysics();
 
-    const asteroids = new MapSchema<Asteroid>();
-    asteroids.set("laser-inactive-test-asteroid", asteroid);
+    const state = new MatchState();
+    state.asteroids.set("laser-inactive-test-asteroid", asteroid);
     const player = new Player();
     player.ship = ship;
+    state.players.set("laser-inactive-test", player);
 
     const targetIndex = 1 * asteroid.gridWidth + 1;
     const startingHp = asteroid.cells[targetIndex];
 
     for (let i = 0; i < 60; i++)
-      tickLaserDamage(player, ship, body, asteroids, 1 / 60);
+      tickLaserDamage("laser-inactive-test", player, body, state, 1 / 60);
 
     expect(asteroid.cells[targetIndex]).toBe(startingHp);
     expect(player.supplies).toBe(0);
@@ -179,17 +180,24 @@ describe("tickLaserDamage", () => {
       createAsteroidBody(`explosion-test-asteroid-${idSuffix}`, asteroid);
       stepPhysics();
 
-      const asteroids = new MapSchema<Asteroid>();
-      asteroids.set(`explosion-test-asteroid-${idSuffix}`, asteroid);
+      const state = new MatchState();
+      state.asteroids.set(`explosion-test-asteroid-${idSuffix}`, asteroid);
       const player = new Player();
       player.ship = ship;
+      state.players.set(`explosion-test-${idSuffix}`, player);
 
-      return { ship, body, asteroids, player };
+      return {
+        ship,
+        body,
+        state,
+        player,
+        sessionId: `explosion-test-${idSuffix}`,
+      };
     }
 
     it("spawns a world-space explosion when the probability roll succeeds", () => {
       vi.spyOn(Math, "random").mockReturnValue(0); // always below explosionChance
-      const { ship, body, asteroids, player } = setUpFiringShip(20, 60, "hit");
+      const { body, state, player, sessionId } = setUpFiringShip(20, 60, "hit");
 
       // Per-tick damage is a fraction of an HP (see the pendingDamage
       // accumulator), so it takes a few ticks before any whole-number damage
@@ -197,7 +205,7 @@ describe("tickLaserDamage", () => {
       const explosions = [];
       for (let i = 0; i < 30; i++) {
         explosions.push(
-          ...tickLaserDamage(player, ship, body, asteroids, 1 / 60),
+          ...tickLaserDamage(sessionId, player, body, state, 1 / 60).explosions,
         );
       }
 
@@ -210,11 +218,91 @@ describe("tickLaserDamage", () => {
 
     it("spawns nothing when the probability roll fails", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.999); // always above explosionChance
-      const { ship, body, asteroids, player } = setUpFiringShip(20, 80, "miss");
+      const { body, state, player, sessionId } = setUpFiringShip(
+        20,
+        80,
+        "miss",
+      );
 
-      const explosions = tickLaserDamage(player, ship, body, asteroids, 1 / 60);
+      const result = tickLaserDamage(sessionId, player, body, state, 1 / 60);
 
-      expect(explosions).toEqual([]);
+      expect(result.explosions).toEqual([]);
+    });
+  });
+
+  describe("ship-to-ship", () => {
+    it("damages the struck part of another ship and reports it at 0 HP", () => {
+      const shooter = buildStarterShip(140, 100);
+      const laser = findPart(shooter, partType.laser);
+      if (laser) laser.activation = activation.active;
+      tickPowerBudget(shooter, 1);
+      const shooterBody = createShipBody("pvp-shooter", shooter);
+
+      // The victim sits straight north; its rearmost part (the engine, local
+      // offsetY -2) is the first collider in the beam's path.
+      const victimShip = buildStarterShip(140, 106);
+      createShipBody("pvp-victim", victimShip);
+      stepPhysics();
+
+      const state = new MatchState();
+      const shooterPlayer = new Player();
+      shooterPlayer.ship = shooter;
+      state.players.set("pvp-shooter", shooterPlayer);
+      const victimPlayer = new Player();
+      victimPlayer.ship = victimShip;
+      state.players.set("pvp-victim", victimPlayer);
+
+      const victimEngine = findPart(victimShip, partType.engine);
+      expect(victimEngine?.hp).toBe(100);
+
+      const zeroed = [];
+      let sawDamage = false;
+      for (let i = 0; i < 3000 && zeroed.length === 0; i++) {
+        const result = tickLaserDamage(
+          "pvp-shooter",
+          shooterPlayer,
+          shooterBody,
+          state,
+          1 / 60,
+        );
+        if (result.damagedShipIds.includes("pvp-victim")) sawDamage = true;
+        zeroed.push(...result.zeroedParts);
+      }
+
+      expect(sawDamage).toBe(true);
+      expect(victimEngine?.hp).toBe(0);
+      expect(zeroed[0]?.sessionId).toBe("pvp-victim");
+      // No supplies for shooting ships -- only asteroid cells award them.
+      expect(shooterPlayer.supplies).toBe(0);
+    });
+
+    it("never hits the firing ship's own parts", () => {
+      const shooter = buildStarterShip(170, 100);
+      const laser = findPart(shooter, partType.laser);
+      if (laser) laser.activation = activation.active;
+      tickPowerBudget(shooter, 1);
+      const shooterBody = createShipBody("solo-shooter", shooter);
+      stepPhysics();
+
+      const state = new MatchState();
+      const player = new Player();
+      player.ship = shooter;
+      state.players.set("solo-shooter", player);
+
+      for (let i = 0; i < 120; i++) {
+        const result = tickLaserDamage(
+          "solo-shooter",
+          player,
+          shooterBody,
+          state,
+          1 / 60,
+        );
+        expect(result.zeroedParts).toEqual([]);
+        expect(result.damagedShipIds).toEqual([]);
+      }
+      shooter.parts.forEach((part) => {
+        expect(part.hp).toBe(100);
+      });
     });
   });
 });

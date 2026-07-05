@@ -121,7 +121,7 @@ All ship parts:
 - have edges which can connect to other parts (3 or 4, see above)
 - have mass
 - have HP
-- when they reach 0 HP, always either disappear (destroyed) or detach from the ship immediately; which of the two happens is governed by a configurable probability, not chance of it happening at all
+- when they reach 0 HP, always either disappear (destroyed) or detach from the ship immediately; which of the two happens is governed by a configurable probability (partDetachChance, 30% detach), not chance of it happening at all. A detached part re-enters the world as a free-floating part at half its maximum HP.
 
 ### Ship composition
 
@@ -260,7 +260,7 @@ With enough supplies, players can add new parts to their ship. There is a dedica
 
 ### Ship to ship combat
 
-This should be covered by all the rules above. Lasers can damage other player's ships just like they damage asteroids. Parts detached from their ship can be scavenged by other players. Groups of parts can be carved off ships. Players are always left with the group with the most core parts. When a player loses all their core parts or all their power parts, they lose the game.
+This should be covered by all the rules above. Lasers can damage other player's ships just like they damage asteroids, with one difference in beam behavior: a beam that hits a ship stops at, and damages, only the first part struck (ships have one collider per part), whereas a beam that hits an asteroid grid-marches through its cells for the remaining range. A laser never hits the ship firing it, and destroying enemy ship parts awards no supplies -- only rock cells do. Parts detached from their ship can be scavenged by other players. Groups of parts can be carved off ships. Players are always left with the group with the most core parts. When a player loses all their core parts or all their power parts, they lose the game.
 
 ## Controls
 
