@@ -108,6 +108,12 @@ export const laserDamageRate = 20; // HP/s per active laser
 export const laserBoostDamageRate = 60; // HP/s per boosted laser (3x active)
 export const suppliesPerCellDestroyed = 2;
 
+// Computer-controlled ships keep every match at this many ships: bots fill
+// the seats humans don't occupy (see "Computer-controlled enemy ships" in
+// gameDesign.md) and act on anything within their engage range.
+export const targetShipCount = 6;
+export const botEngageRange = 20; // world units
+
 // Score: every supply earned from mining counts toward score for the whole
 // match (even when the spendable supplies pool is capped), plus a flat bonus
 // for each enemy ship kill, credited to the last player who lasered it.

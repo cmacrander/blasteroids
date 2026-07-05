@@ -293,16 +293,18 @@ Keep bindings separate from actions.
 
 ## Computer-controlled enemy ships
 
-Matches should always have the name number of ships (configurable, approximately 6-8). When the number of human players is lower than this number, ships are spawned and controlled by the server. When human players join, a computer-controlled ship is despawned to maintain the ship count.
+Matches should always have the same number of ships (targetShipCount, 6). When the number of human players is lower than this number, ships are spawned and controlled by the server. When human players join, a computer-controlled ship is despawned to maintain the ship count.
 
 The algorithm for these enemies is intentionally very simple, and more robust AI to control them is deferred.
 
-Computer-controlled ships prioritize behavior based on what is nearby:
+Computer-controlled ships prioritize behavior based on what is nearby (distances between ship/asteroid body centers, evaluated every simulation tick against botEngageRange, 20 units):
 
 1. fight other ships - when within 20 units of another ship, they will choose the closest ship, orient toward it, and fire their lasers and engines.
 2. mine asteroids - when within 20 units of an asteroid, they will choose the closest asteroid, orient toward it, and fire their lasers and engines (unless rule 1 takes precedence)
 3. inactive - they will drift at current velocity (unless rule 1 or 2 takes precedence)
 
-Computer-controlled ships never use engine boost or laser boost, and they never defragment themselves. They will build parts whenever they have enough supplies to do so, with simple round-robin selections, unless attaching parts becomes impossible.
+Computer-controlled ships never use engine boost or laser boost, and they never defragment themselves. They will build parts whenever they have enough supplies to do so, with simple round-robin selections (core, power, engine, laser); a type with no legal attach slot is skipped to the next rather than retried.
+
+Bots pilot the same starter ship as humans and run through the exact same per-tick pipeline (power budgeting, movement, rotation, laser damage, loss conditions, kill credit). A bot whose ship is destroyed scatters its parts like any other loss and is immediately replaced by a fresh bot at a clear random spawn point, keeping the ship count constant. A bot despawned to make room for a joining human is removed silently, leaving no parts behind.
 
 The code for computer-controlled ships will likely change in future versions of the design.

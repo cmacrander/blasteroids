@@ -22,8 +22,8 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 - [x] Entity scale and colliding-entity cap
   - gameDesign.md already specs this (see "Entity scale and colliding-entity cap"): a hard cap on ship parts + rock parts + floating parts, past which new asteroids stop spawning. Not implemented at all yet.
   - Currently nothing bounds entity count. It's not yet a real risk (asteroids replenish 1:1 and nothing produces floating parts), but ship combat above starts creating floating parts, and AI enemies above multiplies ship count — this needs to land before those make entity count actually run away, not after a real match hits the wall.
-- [ ] AI enemies
-  - gameDesign.md doesn't describe AI enemies anywhere yet — write that section (spawn count/rate, starter ship stats, difficulty curve, target-selection specifics) before or alongside implementing, so design and code don't drift the way they briefly did for Harvesting.
+- [x] AI enemies
+  - gameDesign.md's "Computer-controlled enemy ships" section is the spec; it now also covers bot ship stats (the starter ship), replacement-on-death, and despawn-on-human-join specifics.
   - Depends on "Ship-to-ship combat" above: "fight other ships" has nothing to fight with until lasers can damage ships.
   - spawn in enemy starter ships
   - prioritize behavior based on what is nearby: (1) fight other ships (2) mine asteroids (3) drift

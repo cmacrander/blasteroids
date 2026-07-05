@@ -9,6 +9,8 @@ import {
   simulationHz,
   messageType,
   partType,
+  partBuildCost,
+  targetShipCount,
   asteroidEntryMargin,
   asteroidDespawnMargin,
 } from "@blasteroids/shared";
@@ -60,6 +62,7 @@ import {
   type RemovedPart,
 } from "./shipDamage";
 import { findShipSpawn } from "./spawnPoint";
+import { decideBotAction } from "./botController";
 import {
   applyActivation,
   parsePartType,
@@ -79,6 +82,9 @@ export class GameRoom extends Room<MatchState> {
   private nextPartId = 0;
   private nextFloatingId = 0;
   private targetAsteroidCount = 0;
+  private nextBotId = 0;
+  // Per-bot round-robin position in the build rotation.
+  private botBuildRotation = new Map<string, number>();
   // Last player to laser each victim, for kill credit (see "Game over").
   private lastAttacker = new Map<string, string>();
 
@@ -198,6 +204,8 @@ export class GameRoom extends Room<MatchState> {
   }
 
   private tick(dt: number): void {
+    this.tickBots();
+
     const explosions: ExplosionSpawn[] = [];
     const zeroedParts: ZeroedPart[] = [];
     this.state.players.forEach((player, sessionId) => {
@@ -277,6 +285,111 @@ export class GameRoom extends Room<MatchState> {
       this.spawnDetachedParts(ship, removed);
       resetShipColliders(victimId, ship);
     }
+  }
+
+  // Computer-controlled ships (see "Computer-controlled enemy ships" in
+  // gameDesign.md) hold every match at targetShipCount ships: bots fill the
+  // seats humans do not occupy, a destroyed bot's replacement spawns
+  // immediately at a fresh clear point, and a bot is despawned outright to
+  // make room whenever a human joins. Bots share the exact same per-tick
+  // pipeline as humans (power, movement, rotation, lasers, loss); this only
+  // sets their controls and manages their population.
+  private tickBots(): void {
+    const botIds: string[] = [];
+    this.state.players.forEach((player, sessionId) => {
+      if (!this.isBot(sessionId)) return;
+      // A bot that lost its ship is dropped here; the fill below replaces it.
+      if (!player.ship) {
+        this.removeBot(sessionId);
+        return;
+      }
+      botIds.push(sessionId);
+    });
+
+    const botTarget = Math.max(0, targetShipCount - this.clients.length);
+    for (let i = botIds.length; i < botTarget; i++) this.spawnBot();
+    while (botIds.length > botTarget) {
+      const excess = botIds.pop();
+      if (excess !== undefined) this.removeBot(excess);
+    }
+
+    this.state.players.forEach((player, sessionId) => {
+      if (!this.isBot(sessionId)) return;
+      const ship = player.ship;
+      if (!ship) return;
+
+      const otherShips: { x: number; y: number }[] = [];
+      this.state.players.forEach((other, otherId) => {
+        if (otherId === sessionId || !other.ship) return;
+        otherShips.push({ x: other.ship.body.x, y: other.ship.body.y });
+      });
+      const asteroids: { x: number; y: number }[] = [];
+      this.state.asteroids.forEach((asteroid) => {
+        asteroids.push({ x: asteroid.body.x, y: asteroid.body.y });
+      });
+
+      const decision = decideBotAction(
+        { x: ship.body.x, y: ship.body.y },
+        otherShips,
+        asteroids,
+      );
+      if (decision.targetAngle !== null) {
+        this.targetAngles.set(sessionId, decision.targetAngle);
+      } else {
+        this.targetAngles.delete(sessionId);
+      }
+      applyActivation(ship, partType.engine, decision.engine);
+      applyActivation(ship, partType.laser, decision.laser);
+
+      this.tickBotBuild(sessionId, player);
+    });
+  }
+
+  // Bots build whenever they can afford to, cycling part types round-robin;
+  // a type with no legal slot is skipped rather than retried forever.
+  private tickBotBuild(sessionId: string, player: Player): void {
+    if (player.supplies < partBuildCost) return;
+    const rotation = [
+      partType.core,
+      partType.power,
+      partType.engine,
+      partType.laser,
+    ];
+    const index = this.botBuildRotation.get(sessionId) ?? 0;
+    const choice = rotation[index % rotation.length] ?? partType.core;
+    const result = tryBuildPart(
+      player,
+      choice,
+      `built-${String(this.nextPartId++)}`,
+    );
+    if (result.ok) {
+      addShipPartCollider(sessionId, result.key, result.part);
+      this.botBuildRotation.set(sessionId, index + 1);
+    } else if (result.reason === "noSlot") {
+      this.botBuildRotation.set(sessionId, index + 1);
+    }
+  }
+
+  private isBot(sessionId: string): boolean {
+    return sessionId.startsWith("bot-");
+  }
+
+  private spawnBot(): void {
+    const sessionId = `bot-${String(this.nextBotId++)}`;
+    const player = new Player();
+    player.uid = "bot";
+    const spawn = findShipSpawn(this.state);
+    player.ship = buildStarterShip(spawn.x, spawn.y);
+    this.state.players.set(sessionId, player);
+    createShipBody(sessionId, player.ship);
+  }
+
+  private removeBot(sessionId: string): void {
+    this.state.players.delete(sessionId);
+    removeShipBody(sessionId);
+    this.targetAngles.delete(sessionId);
+    this.botBuildRotation.delete(sessionId);
+    this.lastAttacker.delete(sessionId);
   }
 
   // A ship missing its last core or last power part is lost (see "Game over
