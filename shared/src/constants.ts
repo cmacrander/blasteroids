@@ -76,15 +76,14 @@ export const engineBoostConsumptionRate = 5; // per boosted engine
 export const laserConsumptionRate = 1; // per active laser
 export const laserBoostConsumptionRate = 5; // per boosted laser
 
-// Ship physics: see "Ships" in gameDesign.md. A starter ship has 4 parts (4000 kg)
+// Ship physics: see "Ships" in gameDesign.md. A starter ship has 4 parts (6000 kg)
 // and exactly one core, pinning efficiency at baselineEfficiency (0.25), so
-// engineThrustRate is sized to net 3 m/s^2 once realized thrust is cut to a
-// quarter: (48000 * 0.25) / 4000 = 3 -- enough to reach maxSpeed in 10s from
-// rest. Boosted thrust is deliberately a smaller multiplier (1.5x) than
-// boosted power draw (3x): boosting should drain the capacitor fast for only
-// a modest speed gain, reserved for emergencies rather than a default way to
-// fly.
-export const partMass = 1000; // kg per part (1 metric ton)
+// engineThrustRate nets 2 m/s^2 once realized thrust is cut to a quarter:
+// (48000 * 0.25) / 6000 = 2 -- reaching maxSpeed in 15s from rest. Boosted
+// thrust is deliberately a smaller multiplier (1.5x) than boosted power draw
+// (3x): boosting should drain the capacitor fast for only a modest speed
+// gain, reserved for emergencies rather than a default way to fly.
+export const partMass = 1500; // kg per part (1.5 metric tons)
 export const engineThrustRate = 48000; // N, rated thrust while active (pre-efficiency)
 export const engineBoostThrustRate = 72000; // N, rated thrust while boosted (pre-efficiency)
 export const maxSpeed = 30; // m/s speed cap
@@ -93,8 +92,8 @@ export const maxAngularSpeed = Math.PI; // rad/s, half a turn per second
 // Rotation is free (no power cost, independent of engine activation): every
 // attached engine acts as a maneuvering thruster contributing torque = this
 // value * its lever arm from the ship's center of mass. Sized so the starter
-// ship (1 engine, 1.5m lever arm, ~5667 kg*m^2 moment of inertia) reaches
-// maxAngularSpeed in about a second: 12000 * 1.5 / 5667 ~= 3.18 rad/s^2.
+// ship (1 engine, 1.5m lever arm, ~8500 kg*m^2 moment of inertia) reaches
+// maxAngularSpeed in about 1.5s: 12000 * 1.5 / 8500 ~= 2.12 rad/s^2.
 export const engineTurnTorque = 12000;
 
 // Fixed beam length (world units, straight from the lens), matching the
@@ -158,16 +157,18 @@ export const asteroidDespawnMargin = 40; // remove once drifted this far out
 export const partBuildCost = 20;
 
 // HP a part has when freshly built or spawned.
-export const partMaxHp = 100;
+export const partMaxHp = 75;
 
 // When a ship part reaches 0 HP it always either detaches into a scavengeable
 // free-floating part (this probability) or is destroyed outright (see "Ship
 // parts" in gameDesign.md).
 export const partDetachChance = 0.3;
 
-// A detached part re-enters the world at half strength; this is the HP it
-// carries as a floating part and brings along when scavenged.
-export const detachedPartHp = 50;
+// A detached part re-enters the world at half strength (see "Ship parts" in
+// gameDesign.md); this is the HP it carries as a floating part and brings
+// along when scavenged. Derived, not a separate tuning knob, so it always
+// tracks partMaxHp.
+export const detachedPartHp = Math.round(partMaxHp / 2);
 
 // Overlap distance (world units) for scavenging: a floating part attaches
 // when it drifts this close to any of the player's ship parts. Ships are

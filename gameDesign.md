@@ -277,19 +277,19 @@ This should be covered by all the rules above. Lasers can damage other player's 
 
 Keep bindings separate from actions.
 
-| action            | default binding                    |
-| ----------------- | ---------------------------------- |
-| engines on        | key down: w                        |
-| engines boost     | double-tap and hold: w             |
-| lasers on         | mouse down: left button            |
-| lasers boost      | double-click and hold: left button |
-| scavenge          | mouse click: right button          |
-| rotate            | mouse position                     |
-| build core part   | key: a                             |
-| build power part  | key: s                             |
-| build engine part | key: d                             |
-| build laser part  | key: f                             |
-| defragment        | key: tab                           |
+| action            | default binding                     |
+| ----------------- | ----------------------------------- |
+| engines on        | key down: w                         |
+| engines boost     | double-tap and hold: w              |
+| lasers on         | mouse down: left button             |
+| lasers boost      | double-click and hold: left button  |
+| scavenge          | mouse click: right button, or space |
+| rotate            | mouse position                      |
+| build core part   | key: a                              |
+| build power part  | key: s                              |
+| build engine part | key: d                              |
+| build laser part  | key: f                              |
+| defragment        | key: tab                            |
 
 ## Computer-controlled enemy ships
 

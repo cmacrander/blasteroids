@@ -71,8 +71,8 @@ describe("stepShipMotion", () => {
   it("accelerates the ship toward its nose while engines are active", () => {
     const motion = restingMotion();
     simulate(motion, starterParts(), activation.active, 0, 1);
-    // One engine at 48kN, 25% efficiency, 4000 kg -> 3 m/s^2 northward.
-    expect(motion.vy).toBeCloseTo(3, 1);
+    // One engine at 48kN, 25% efficiency, 6000 kg -> 2 m/s^2 northward.
+    expect(motion.vy).toBeCloseTo(2, 1);
     expect(Math.abs(motion.vx)).toBeLessThan(0.01);
     expect(motion.y).toBeGreaterThan(100);
   });

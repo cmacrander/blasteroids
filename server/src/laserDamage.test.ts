@@ -4,6 +4,7 @@ import {
   partType,
   activation,
   suppliesPerCellDestroyed,
+  partMaxHp,
   MatchState,
   Player,
 } from "@blasteroids/shared";
@@ -253,7 +254,7 @@ describe("tickLaserDamage", () => {
       state.players.set("pvp-victim", victimPlayer);
 
       const victimEngine = findPart(victimShip, partType.engine);
-      expect(victimEngine?.hp).toBe(100);
+      expect(victimEngine?.hp).toBe(partMaxHp);
 
       const zeroed = [];
       let sawDamage = false;
@@ -301,7 +302,7 @@ describe("tickLaserDamage", () => {
         expect(result.damagedShipIds).toEqual([]);
       }
       shooter.parts.forEach((part) => {
-        expect(part.hp).toBe(100);
+        expect(part.hp).toBe(partMaxHp);
       });
     });
   });

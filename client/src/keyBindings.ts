@@ -3,11 +3,12 @@
 
 export const keyBindings = {
   engines: "KeyW",
-  buildCore: "KeyA",
-  buildPower: "KeyS",
-  buildEngine: "KeyD",
-  buildLaser: "KeyF",
+  buildCore: "Digit1",
+  buildPower: "Digit2",
+  buildEngine: "Digit3",
+  buildLaser: "Digit4",
   defragment: "Tab",
+  scavenge: "Space",
 } as const;
 
 // "KeyA" -> "A"; other codes ("Tab") already read as labels.

@@ -10,6 +10,8 @@ import {
   mapWidth,
   mapHeight,
   capacitorCapacityFor,
+  powerEfficiency,
+  activeCoreCount,
   suppliesCap,
   partBuildCost,
   partTypeNames,
@@ -556,6 +558,19 @@ export function GameCanvas({ room, state, sessionId, sim }: Props) {
           Math.max(0, myShip.storedEnergy / capacitorCapacityFor(myShip)),
         );
         drawVerticalBar(ctx, hudBarMargin, barY, energyFraction, "#0cf");
+
+        const efficiencyPercent = Math.round(
+          powerEfficiency(activeCoreCount(myShip)) * 100,
+        );
+        ctx.font = "12px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(
+          `efficiency ${String(efficiencyPercent)}%`,
+          hudBarMargin,
+          barY - 6,
+        );
 
         const suppliesFraction = Math.min(
           1,

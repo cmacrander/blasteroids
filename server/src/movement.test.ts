@@ -18,7 +18,7 @@ function findPart(
 }
 
 describe("tickMovement", () => {
-  it("accelerates a 4-part ship at 3 m/s^2 when its engine is active", () => {
+  it("accelerates a 4-part ship at 2 m/s^2 when its engine is active", () => {
     const ship = buildStarterShip(20, 100);
     const engine = findPart(ship, partType.engine);
     if (engine) engine.activation = activation.active;
@@ -31,7 +31,7 @@ describe("tickMovement", () => {
     stepPhysics();
 
     const v = body.linvel();
-    expect(v.y).toBeCloseTo(3 / 60, 3); // a=3 m/s^2 over one 1/60s tick, forward (+y)
+    expect(v.y).toBeCloseTo(2 / 60, 3); // a=2 m/s^2 over one 1/60s tick, forward (+y)
     expect(v.x).toBeCloseTo(0, 6);
   });
 

@@ -343,10 +343,14 @@ export class GameRoom extends Room<MatchState> {
         asteroids.push({ x: asteroid.body.x, y: asteroid.body.y });
       });
 
+      const hasLaser = [...ship.parts.values()].some(
+        (part) => part.partType === partType.laser && part.hp > 0,
+      );
       const decision = decideBotAction(
         { x: ship.body.x, y: ship.body.y },
         otherShips,
         asteroids,
+        hasLaser,
       );
       if (decision.targetAngle !== null) {
         this.targetAngles.set(sessionId, decision.targetAngle);
