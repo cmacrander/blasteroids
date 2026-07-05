@@ -7,13 +7,14 @@ import {
   facing,
   mapWidth,
   mapHeight,
-  capacitorCapacity,
+  capacitorCapacityFor,
 } from "@blasteroids/shared";
 
 const pixelsPerUnit = 40; // screen pixels per world unit (one part is one unit)
 
-// Engine sprites while active/boosted are taller than one unit: they include an
-// exhaust plume extending past the nozzle. Non-engine sprites are plain 1x1 tiles.
+// Engine/laser sprites while active/boosted are taller than one unit: they
+// include an exhaust plume or beam extending past the part. Other sprites
+// are plain 1x1 tiles.
 const spriteUrls = {
   core: "/sprites/core.png",
   power: "/sprites/power.png",
@@ -21,6 +22,8 @@ const spriteUrls = {
   engineActive: "/sprites/engineActive.png",
   engineBoosted: "/sprites/engineBoosted.png",
   laser: "/sprites/laser.png",
+  laserActive: "/sprites/laserActive.png",
+  laserBoosted: "/sprites/laserBoosted.png",
 } as const;
 type SpriteKey = keyof typeof spriteUrls;
 const spriteKeys: SpriteKey[] = [
@@ -30,10 +33,13 @@ const spriteKeys: SpriteKey[] = [
   "engineActive",
   "engineBoosted",
   "laser",
+  "laserActive",
+  "laserBoosted",
 ];
 
-// The plume only makes sense to show if the engine is both requesting that
-// activation and actually receiving power this tick (see power budgeting).
+// The plume/beam only makes sense to show if the part is both requesting
+// that activation and actually receiving power this tick (see power
+// budgeting). Instant on/off by design -- no fade in/out.
 function spriteKeyFor(part: Part): SpriteKey {
   if (part.partType === partType.engine) {
     if (part.powered && part.activation === activation.boosted)
@@ -42,9 +48,15 @@ function spriteKeyFor(part: Part): SpriteKey {
       return "engineActive";
     return "engine";
   }
+  if (part.partType === partType.laser) {
+    if (part.powered && part.activation === activation.boosted)
+      return "laserBoosted";
+    if (part.powered && part.activation === activation.active)
+      return "laserActive";
+    return "laser";
+  }
   if (part.partType === partType.core) return "core";
-  if (part.partType === partType.power) return "power";
-  return "laser";
+  return "power";
 }
 
 // Canonical sprites face north; this rotates each part to its stored facing.
@@ -193,6 +205,8 @@ export function GameCanvas({ state, sessionId }: Props) {
       engineActive: new Image(),
       engineBoosted: new Image(),
       laser: new Image(),
+      laserActive: new Image(),
+      laserBoosted: new Image(),
     };
     for (const key of spriteKeys) {
       images[key].src = spriteUrls[key];
@@ -268,7 +282,7 @@ export function GameCanvas({ state, sessionId }: Props) {
       if (myShip) {
         const fraction = Math.min(
           1,
-          Math.max(0, myShip.storedEnergy / capacitorCapacity),
+          Math.max(0, myShip.storedEnergy / capacitorCapacityFor(myShip)),
         );
         drawEnergyBar(ctx, canvas.height, fraction);
       }

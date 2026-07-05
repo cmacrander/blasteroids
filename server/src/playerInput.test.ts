@@ -2,7 +2,7 @@
 import { describe, it, expect } from "vitest";
 import { partType, activation } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
-import { applyEngineActivation, parseAimAngle } from "./playerInput";
+import { applyActivation, parseAimAngle } from "./playerInput";
 
 function findPart(
   ship: ReturnType<typeof buildStarterShip>,
@@ -11,23 +11,24 @@ function findPart(
   return [...ship.parts.values()].find((part) => part.partType === type);
 }
 
-describe("applyEngineActivation", () => {
-  it("sets activation on every engine part for a valid message", () => {
+describe("applyActivation", () => {
+  it("sets activation on every part of the target type", () => {
     const ship = buildStarterShip(0, 0);
 
-    applyEngineActivation(ship, activation.boosted);
+    applyActivation(ship, partType.engine, activation.boosted);
 
     expect(findPart(ship, partType.engine)?.activation).toBe(
       activation.boosted,
     );
   });
 
-  it("leaves non-engine parts untouched", () => {
+  it("applies independently per part type", () => {
     const ship = buildStarterShip(0, 0);
 
-    applyEngineActivation(ship, activation.active);
+    applyActivation(ship, partType.laser, activation.active);
 
-    expect(findPart(ship, partType.laser)?.activation).toBe(
+    expect(findPart(ship, partType.laser)?.activation).toBe(activation.active);
+    expect(findPart(ship, partType.engine)?.activation).toBe(
       activation.inactive,
     );
   });
@@ -37,9 +38,9 @@ describe("applyEngineActivation", () => {
     const engine = findPart(ship, partType.engine);
     if (engine) engine.activation = activation.active;
 
-    applyEngineActivation(ship, 99);
-    applyEngineActivation(ship, "boosted");
-    applyEngineActivation(ship, undefined);
+    applyActivation(ship, partType.engine, 99);
+    applyActivation(ship, partType.engine, "boosted");
+    applyActivation(ship, partType.engine, undefined);
 
     expect(engine?.activation).toBe(activation.active);
   });

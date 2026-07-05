@@ -17,7 +17,11 @@ pkill -9 -f "tsx watch src/index.ts" 2>/dev/null
 # doesn't match -- kill it directly or it survives as an orphan.
 pkill -9 -f "tsx/dist/preflight.cjs" 2>/dev/null
 pkill -9 -f "node_modules/.bin/vite" 2>/dev/null
-pkill -9 -f "npm run dev" 2>/dev/null
+# Deliberately no "npm run dev" pattern: it's redundant with "concurrently"
+# above (which is the actual, precise process for a running dev session) and
+# dangerous -- it matches ANY command line containing that substring,
+# including "npm run restart" (which chains ...&& npm run dev at the end),
+# self-killing the very script that's trying to start a fresh session.
 
 rm -rf node_modules/.vite client/node_modules/.vite
 

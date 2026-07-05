@@ -7,6 +7,7 @@ import {
   mapHeight,
   simulationHz,
   messageType,
+  partType,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import { tickPowerBudget } from "./powerBudget";
@@ -19,7 +20,7 @@ import {
 } from "./physicsWorld";
 import { tickMovement, capSpeed } from "./movement";
 import { tickRotation, capAngularSpeed } from "./rotation";
-import { applyEngineActivation, parseAimAngle } from "./playerInput";
+import { applyActivation, parseAimAngle } from "./playerInput";
 
 const fixedDtMs = 1000 / simulationHz;
 const fixedDt = 1 / simulationHz;
@@ -38,7 +39,15 @@ export class GameRoom extends Room<MatchState> {
       messageType.setEngineActivation,
       (client, message: unknown) => {
         const ship = this.state.players.get(client.sessionId)?.ship;
-        if (ship) applyEngineActivation(ship, message);
+        if (ship) applyActivation(ship, partType.engine, message);
+      },
+    );
+
+    this.onMessage(
+      messageType.setLaserActivation,
+      (client, message: unknown) => {
+        const ship = this.state.players.get(client.sessionId)?.ship;
+        if (ship) applyActivation(ship, partType.laser, message);
       },
     );
 

@@ -56,9 +56,10 @@ v1 has no persistence; every match starts fresh. To keep future persistence addi
 
 From the repo root:
 
-- `npm run dev` - starts the `shared` package's `tsc --watch` build, the Colyseus server (`tsx watch`), and the Vite client (`vite`), all via `concurrently`. Rebuilding `shared` on change matters because `client`/`server` import its compiled `dist` output, not its TypeScript source directly.
+- `npm run dev` - does a one-shot rebuild of `shared` (plain `tsc`, not watch mode), then starts the Colyseus server (`tsx watch`) and the Vite client (`vite`) via `concurrently`. `shared` is rebuilt on every invocation because `client`/`server` import its compiled `dist` output, not its TypeScript source directly. There is deliberately no continuous `tsc --watch` process: the filesystem this sandbox shares with the host doesn't always deliver file-change events reliably, so a background watcher can silently miss an edit (leaving the server running stale compiled code with no error) or, worse, fire on a phantom change and restart the server mid-session, dropping active connections. Re-run `npm run dev` (or `npm run restart`) after any edit under `shared/src` rather than expecting it to pick up automatically.
 - `npm run doctor` - reports whether the server (`:2567`) and client (`:3000`) are up, and whether duplicate dev processes are running (a sign of a stacked/leftover restart). If either check fails, it runs `npm run kill` for you.
 - `npm run kill` - force-kills every process `npm run dev` can spawn and clears Vite's dependency cache. Use this any time the dev environment seems broken (e.g. `Uncaught ReferenceError: exports is not defined` in the browser, which is what a stale Vite cache looks like), then run `npm run dev` again for a clean start.
+- `npm run restart` - `npm run kill` then `npm run dev`. The standard way to pick up any change under `shared/src` (or anywhere server-side) with certainty. After running it, do a hard refresh of the browser tab too — reconnecting through the app's own UI isn't enough, since a stale WebSocket/room from before the restart can also look like the old code is still running.
 - `npm run build` - bundles the client
 - `npm test` - runs vitest
 - `npm run deploy:client` - deploys client to Firebase Hosting

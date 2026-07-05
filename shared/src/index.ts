@@ -2,6 +2,7 @@
 export const SHARED_VERSION = "0.0.1";
 
 export * from "./constants.js";
+export * from "./shipStats.js";
 export * from "./schema/body.js";
 export * from "./schema/part.js";
 export * from "./schema/ship.js";

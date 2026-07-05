@@ -15,6 +15,8 @@ Publish ports through the sandbox:
 sbx ports claude-blasteroids --publish 3000:3000
 ```
 
+Kill all processes with `npm run kill` or start fresh, with tunable constants updated, with `npm run restart`.
+
 To view server logs if claude has already started it
 
 ```

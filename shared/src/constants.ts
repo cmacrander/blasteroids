@@ -21,12 +21,16 @@ export type Activation = (typeof activation)[keyof typeof activation];
 // Names of messages the client sends to the server room.
 export const messageType = {
   setEngineActivation: "setEngineActivation",
+  setLaserActivation: "setLaserActivation",
   setAimAngle: "setAimAngle",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
-// Max energy a ship's capacitor can store; see "Power budgeting" in gameDesign.md.
-export const capacitorCapacity = 100;
+// Max energy a ship's capacitor can store scales with how much power
+// infrastructure it has, not a flat amount: see capacitorCapacityFor in
+// shipStats.ts. A small ship (few power parts) has a small buffer, so
+// boosting drains it fast; a bigger ship has more capacity to draw on.
+export const capacitorCapacityPerPowerPart = 30;
 
 // Power budgeting rates (watts), see "Power budgeting" in gameDesign.md. A starter
 // ship has exactly one core, pinning efficiency at baselineEfficiency, so
@@ -38,9 +42,9 @@ export const baselineEfficiency = 0.25;
 export const powerGenerationRate = 20; // produced per power part, before efficiency
 export const coreConsumptionRate = 2; // per active core
 export const engineConsumptionRate = 1; // per active engine
-export const engineBoostConsumptionRate = 3; // per boosted engine
+export const engineBoostConsumptionRate = 5; // per boosted engine
 export const laserConsumptionRate = 1; // per active laser
-export const laserBoostConsumptionRate = 3; // per boosted laser
+export const laserBoostConsumptionRate = 5; // per boosted laser
 
 // Ship physics: see "Ships" in gameDesign.md. A starter ship has 4 parts (4000 kg)
 // and exactly one core, pinning efficiency at baselineEfficiency (0.25), so
@@ -62,3 +66,7 @@ export const maxAngularSpeed = Math.PI; // rad/s, half a turn per second
 // ship (1 engine, 1.5m lever arm, ~5667 kg*m^2 moment of inertia) reaches
 // maxAngularSpeed in about a second: 12000 * 1.5 / 5667 ~= 3.18 rad/s^2.
 export const engineTurnTorque = 12000;
+
+// Initial placeholder length for the laser beam (world units, straight from
+// the lens); expect to retune once it's visible in play.
+export const laserRange = 15;

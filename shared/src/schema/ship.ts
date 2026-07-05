@@ -6,5 +6,5 @@ import { Part } from "./part.js";
 export class Ship extends Schema {
   @type(Body) body = new Body();
   @type({ map: Part }) parts = new MapSchema<Part>();
-  @type("float32") storedEnergy = 0; // current capacitor charge, up to capacitorCapacity
+  @type("float32") storedEnergy = 0; // current capacitor charge, up to capacitorCapacityFor(this)
 }

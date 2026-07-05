@@ -2,17 +2,14 @@
 import type { Room } from "colyseus.js";
 import type { MatchState } from "@blasteroids/shared";
 import { activation, messageType } from "@blasteroids/shared";
-
-const doubleTapWindowMs = 300;
+import { createDoubleTapTracker } from "./doubleTapHold";
 
 export function attachEngineInput(room: Room<MatchState>): () => void {
-  let lastKeyDownTime = -Infinity;
+  const registerDown = createDoubleTapTracker();
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.code !== "KeyW" || event.repeat) return;
-    const now = performance.now();
-    const isDoubleTap = now - lastKeyDownTime <= doubleTapWindowMs;
-    lastKeyDownTime = now;
+    const isDoubleTap = registerDown(performance.now());
     room.send(
       messageType.setEngineActivation,
       isDoubleTap ? activation.boosted : activation.active,

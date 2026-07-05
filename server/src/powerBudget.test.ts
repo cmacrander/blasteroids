@@ -1,6 +1,10 @@
 // Unit tests for per-tick power budgeting.
 import { describe, it, expect } from "vitest";
-import { partType, activation } from "@blasteroids/shared";
+import {
+  partType,
+  activation,
+  capacitorCapacityFor,
+} from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import { tickPowerBudget } from "./powerBudget";
 
@@ -27,7 +31,22 @@ describe("tickPowerBudget", () => {
 
     for (let i = 0; i < 1000; i++) tickPowerBudget(ship, 1);
 
-    expect(ship.storedEnergy).toBe(100);
+    expect(ship.storedEnergy).toBe(capacitorCapacityFor(ship));
+  });
+
+  it("scales capacity with power-part count and clamps down if one is lost", () => {
+    const ship = buildStarterShip(0, 0);
+    for (let i = 0; i < 1000; i++) tickPowerBudget(ship, 1);
+    const fullAtOnePowerPart = ship.storedEnergy;
+
+    const power = partOfType(ship, partType.power);
+    if (power) power.hp = 0; // destroy the only power part
+
+    tickPowerBudget(ship, 1);
+
+    expect(capacitorCapacityFor(ship)).toBe(0);
+    expect(ship.storedEnergy).toBe(0);
+    expect(fullAtOnePowerPart).toBeGreaterThan(0);
   });
 
   it("drains the capacitor when boosted draw exceeds delivered generation", () => {

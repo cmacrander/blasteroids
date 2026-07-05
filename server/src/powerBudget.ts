@@ -10,7 +10,7 @@ import {
   engineBoostConsumptionRate,
   laserConsumptionRate,
   laserBoostConsumptionRate,
-  capacitorCapacity,
+  capacitorCapacityFor,
 } from "@blasteroids/shared";
 
 // Diminishing returns: each active core beyond the first adds a shrinking bonus.
@@ -58,6 +58,11 @@ export function tickPowerBudget(ship: Ship, dt: number): void {
     part.powered = true;
   });
   const rawGeneration = powerParts.length * powerGenerationRate;
+
+  // Capacity scales with power-part count; if one was just destroyed, clamp
+  // stored energy down immediately rather than let it float above the new max.
+  const capacitorCapacity = capacitorCapacityFor(ship);
+  ship.storedEnergy = Math.min(ship.storedEnergy, capacitorCapacity);
 
   let activeCoreCount = cores.filter((core) => core.powered).length;
   const effectiveGeneration = () =>
