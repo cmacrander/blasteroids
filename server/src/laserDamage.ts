@@ -12,9 +12,10 @@ import {
   suppliesPerCellDestroyed,
   suppliesCap,
   explosionChance,
+  activeCoreCount,
+  powerEfficiency,
+  facingWorldRadians,
 } from "@blasteroids/shared";
-import { activeCoreCount, powerEfficiency } from "./powerBudget";
-import { facingRadians } from "./movement";
 import { raycastAsteroids, onAsteroidCellDestroyed } from "./physicsWorld";
 
 function ratedDamage(part: Part): number {
@@ -164,7 +165,7 @@ export function tickLaserDamage(
   ship.parts.forEach((part) => {
     if (part.partType !== partType.laser || !part.powered) return;
 
-    const worldAngle = (facingRadians[part.facing] ?? 0) + rotation;
+    const worldAngle = facingWorldRadians(part.facing) + rotation;
     const dirX = Math.cos(worldAngle);
     const dirY = Math.sin(worldAngle);
     const originX = translation.x + part.offsetX * cos - part.offsetY * sin;

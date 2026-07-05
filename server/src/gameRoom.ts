@@ -45,7 +45,11 @@ import {
 import { tickMovement, capSpeed } from "./movement";
 import { tickRotation, capAngularSpeed } from "./rotation";
 import { tickLaserDamage, type ExplosionSpawn } from "./laserDamage";
-import { applyActivation, parseAimAngle, parsePartType } from "./playerInput";
+import {
+  applyActivation,
+  parsePartType,
+  parsePlayerInput,
+} from "./playerInput";
 import { tryBuildPart } from "./buildPart";
 
 const fixedDtMs = 1000 / simulationHz;
@@ -83,16 +87,23 @@ export class GameRoom extends Room<MatchState> {
     // tick's laser raycast would silently miss any asteroid entirely.
     stepPhysics();
 
-    // Engine/laser controls are dead while defragging (see "Scavenging" in
-    // gameDesign.md): the ship drifts until the rearrangement completes.
-    this.onMessage(
-      messageType.setEngineActivation,
-      (client, message: unknown) => {
-        const ship = this.state.players.get(client.sessionId)?.ship;
-        if (ship && ship.defragRemaining <= 0)
-          applyActivation(ship, partType.engine, message);
-      },
-    );
+    // One packet per client prediction tick: sequence-numbered engine
+    // activation and aim angle. The seq is always acked (so the client can
+    // trim its replay log), but the controls are dead while defragging (see
+    // "Scavenging" in gameDesign.md): the ship drifts until it completes.
+    this.onMessage(messageType.playerInput, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const input = parsePlayerInput(message);
+      if (!player || !input) return;
+
+      if (input.seq > player.lastProcessedInput)
+        player.lastProcessedInput = input.seq;
+
+      const ship = player.ship;
+      if (!ship || ship.defragRemaining > 0) return;
+      applyActivation(ship, partType.engine, input.engine);
+      this.targetAngles.set(client.sessionId, input.aim);
+    });
 
     this.onMessage(
       messageType.setLaserActivation,
@@ -123,11 +134,6 @@ export class GameRoom extends Room<MatchState> {
       // accelerating the "drifting" ship for the whole downtime.
       body.resetForces(true);
       body.resetTorques(true);
-    });
-
-    this.onMessage(messageType.setAimAngle, (client, message: unknown) => {
-      const angle = parseAimAngle(message);
-      if (angle !== undefined) this.targetAngles.set(client.sessionId, angle);
     });
 
     this.onMessage(messageType.buildPart, (client, message: unknown) => {

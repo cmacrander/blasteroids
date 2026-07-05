@@ -16,6 +16,7 @@ import {
   messageType,
 } from "@blasteroids/shared";
 import { keyBindings, bindingLabel } from "./keyBindings";
+import type { ClientSim } from "./clientSim";
 
 const pixelsPerUnit = 40; // screen pixels per world unit (one part is one unit)
 
@@ -332,17 +333,22 @@ function drawExplosion(
 }
 
 interface Props {
-  room: Room<MatchState>;
+  // room and sim are absent in the dev render harness, which mocks the match
+  // state locally: without them there are no server messages, no prediction,
+  // and no interpolation -- everything draws from the raw state.
+  room?: Room<MatchState> | undefined;
   state: MatchState;
   sessionId: string;
+  sim?: ClientSim | undefined;
 }
 
-export function GameCanvas({ room, state, sessionId }: Props) {
+export function GameCanvas({ room, state, sessionId, sim }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const explosionsRef = useRef<Explosion[]>([]);
   const warningRef = useRef<HudWarning | null>(null);
 
   useEffect(() => {
+    if (!room) return;
     room.onMessage(
       messageType.spawnExplosion,
       (spawns: { x: number; y: number }[]) => {
@@ -389,14 +395,19 @@ export function GameCanvas({ room, state, sessionId }: Props) {
     let animId: number;
 
     const draw = () => {
+      const now = performance.now();
+      sim?.tick(now);
+
       ctx.fillStyle = "#000";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Camera follows the local player's ship; fall back to map centre.
+      // Camera follows the local player's predicted ship pose; fall back to
+      // the raw state, then the map centre.
       const myPlayer = state.players.get(sessionId);
       const myShip = myPlayer?.ship;
-      const camX = myShip ? myShip.body.x : mapWidth / 2;
-      const camY = myShip ? myShip.body.y : mapHeight / 2;
+      const myPose = sim?.localPose() ?? (myShip ? myShip.body : null);
+      const camX = myPose ? myPose.x : mapWidth / 2;
+      const camY = myPose ? myPose.y : mapHeight / 2;
 
       // World +y is north; screen y grows downward, so the y axis is flipped.
       const toScreenX = (wx: number) =>
@@ -415,10 +426,16 @@ export function GameCanvas({ room, state, sessionId }: Props) {
         mapHeight * pixelsPerUnit,
       );
 
-      state.players.forEach((player) => {
+      state.players.forEach((player, playerSessionId) => {
         const ship = player.ship;
         if (!ship) return;
-        const angle = ship.body.angle;
+        // The local ship draws at its predicted pose, remote ships at their
+        // interpolated (slightly past) pose; raw state is the fallback.
+        const pose =
+          (playerSessionId === sessionId
+            ? sim?.localPose()
+            : sim?.remotePose(`ship:${playerSessionId}`, now)) ?? ship.body;
+        const angle = pose.angle;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
@@ -427,8 +444,8 @@ export function GameCanvas({ room, state, sessionId }: Props) {
           if (!image.complete || image.naturalWidth === 0) return;
 
           // Rotate the part's local offset into world space, then to screen.
-          const worldX = ship.body.x + part.offsetX * cos - part.offsetY * sin;
-          const worldY = ship.body.y + part.offsetX * sin + part.offsetY * cos;
+          const worldX = pose.x + part.offsetX * cos - part.offsetY * sin;
+          const worldY = pose.y + part.offsetX * sin + part.offsetY * cos;
           const orientation = angle + (facingRadians[part.facing] ?? 0);
 
           // Sprites are always exactly one unit wide; taller ones (like an
@@ -454,11 +471,13 @@ export function GameCanvas({ room, state, sessionId }: Props) {
         });
       });
 
-      state.asteroids.forEach((asteroid) => {
+      state.asteroids.forEach((asteroid, asteroidId) => {
         const image = images.rock;
         if (!image.complete || image.naturalWidth === 0) return;
 
-        const angle = asteroid.body.angle;
+        const pose =
+          sim?.remotePose(`asteroid:${asteroidId}`, now) ?? asteroid.body;
+        const angle = pose.angle;
         const cos = Math.cos(angle);
         const sin = Math.sin(angle);
 
@@ -468,8 +487,8 @@ export function GameCanvas({ room, state, sessionId }: Props) {
           const row = Math.floor(index / asteroid.gridWidth);
           const localX = asteroid.originX + col;
           const localY = asteroid.originY + row;
-          const worldX = asteroid.body.x + localX * cos - localY * sin;
-          const worldY = asteroid.body.y + localX * sin + localY * cos;
+          const worldX = pose.x + localX * cos - localY * sin;
+          const worldY = pose.y + localX * sin + localY * cos;
 
           ctx.save();
           ctx.translate(toScreenX(worldX), toScreenY(worldY));
@@ -485,7 +504,6 @@ export function GameCanvas({ room, state, sessionId }: Props) {
         });
       });
 
-      const now = performance.now();
       explosionsRef.current = explosionsRef.current.filter((explosion) => {
         const age = now - explosion.spawnedAt;
         if (age >= explosionLifetimeMs) return false;
@@ -545,7 +563,7 @@ export function GameCanvas({ room, state, sessionId }: Props) {
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [state, sessionId]);
+  }, [state, sessionId, sim]);
 
   return <canvas ref={canvasRef} style={{ display: "block" }} />;
 }

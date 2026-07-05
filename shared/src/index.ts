@@ -7,6 +7,8 @@ export * from "./partPlacement.js";
 export * from "./rng.js";
 export * from "./connectivity.js";
 export * from "./defrag.js";
+export * from "./rotationControl.js";
+export * from "./shipSim.js";
 export * from "./schema/body.js";
 export * from "./schema/part.js";
 export * from "./schema/ship.js";

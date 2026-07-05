@@ -30,15 +30,23 @@ export type Activation = (typeof activation)[keyof typeof activation];
 // input (client -> server); spawnExplosion is server -> client, a one-off
 // visual event rather than synced state (see explosionChance below).
 export const messageType = {
-  setEngineActivation: "setEngineActivation",
+  playerInput: "playerInput",
   setLaserActivation: "setLaserActivation",
-  setAimAngle: "setAimAngle",
   spawnExplosion: "spawnExplosion",
   buildPart: "buildPart",
   buildRejected: "buildRejected",
   defragment: "defragment",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
+
+// Client -> server, one per client prediction tick: sequence-numbered engine
+// activation and aim angle (see "Client-side prediction and reconciliation"
+// in gameDesign.md). The server acks via Player.lastProcessedInput.
+export interface PlayerInputMessage {
+  seq: number;
+  engine: number;
+  aim: number;
+}
 
 // Server -> client payload explaining a rejected buildPart request.
 export interface BuildRejection {

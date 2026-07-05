@@ -1,5 +1,5 @@
 // Validates and applies player-input messages to a ship's parts.
-import type { Ship, PartType } from "@blasteroids/shared";
+import type { Ship, PartType, PlayerInputMessage } from "@blasteroids/shared";
 import { activation, partType } from "@blasteroids/shared";
 
 const activationCodes: number[] = Object.values(activation);
@@ -26,4 +26,19 @@ export function parseAimAngle(message: unknown): number | undefined {
 
 export function parsePartType(message: unknown): PartType | undefined {
   return Object.values(partType).find((code) => code === message);
+}
+
+export function parsePlayerInput(
+  message: unknown,
+): PlayerInputMessage | undefined {
+  if (typeof message !== "object" || message === null) return undefined;
+  if (!("seq" in message) || !("engine" in message) || !("aim" in message))
+    return undefined;
+  const { seq, engine, aim } = message;
+  if (typeof seq !== "number" || !Number.isFinite(seq) || seq < 0)
+    return undefined;
+  if (typeof engine !== "number" || !activationCodes.includes(engine))
+    return undefined;
+  if (typeof aim !== "number" || !Number.isFinite(aim)) return undefined;
+  return { seq, engine, aim };
 }

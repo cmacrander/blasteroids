@@ -4,22 +4,13 @@ import type { Ship, Part } from "@blasteroids/shared";
 import {
   partType,
   activation,
-  facing,
   engineThrustRate,
   engineBoostThrustRate,
   maxSpeed,
+  activeCoreCount,
+  powerEfficiency,
+  facingWorldRadians,
 } from "@blasteroids/shared";
-import { activeCoreCount, powerEfficiency } from "./powerBudget";
-
-// A part's facing direction in the ship's own unrotated frame, where +x is
-// east and +y is north (matches gameDesign.md's map orientation). Add the
-// ship's current rotation to get the world-space direction.
-export const facingRadians: Record<number, number> = {
-  [facing.north]: Math.PI / 2,
-  [facing.east]: 0,
-  [facing.south]: -Math.PI / 2,
-  [facing.west]: Math.PI,
-};
 
 export function ratedThrust(part: Part): number {
   if (part.activation === activation.boosted) return engineBoostThrustRate;
@@ -37,7 +28,7 @@ export function tickMovement(ship: Ship, body: RAPIER.RigidBody): void {
     if (part.partType !== partType.engine || !part.powered) return;
 
     // Thrust pushes the ship opposite its exhaust direction, like a rocket.
-    const exhaustAngle = (facingRadians[part.facing] ?? 0) + body.rotation();
+    const exhaustAngle = facingWorldRadians(part.facing) + body.rotation();
     const thrustAngle = exhaustAngle + Math.PI;
     const magnitude = ratedThrust(part) * efficiency;
     forceX += Math.cos(thrustAngle) * magnitude;

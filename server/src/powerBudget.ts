@@ -3,7 +3,6 @@ import type { Ship, Part } from "@blasteroids/shared";
 import {
   partType,
   activation,
-  baselineEfficiency,
   powerGenerationRate,
   coreConsumptionRate,
   engineConsumptionRate,
@@ -11,18 +10,8 @@ import {
   laserConsumptionRate,
   laserBoostConsumptionRate,
   capacitorCapacityFor,
+  powerEfficiency,
 } from "@blasteroids/shared";
-
-// Diminishing returns: each active core beyond the first adds a shrinking bonus.
-export function powerEfficiency(activeCoreCount: number): number {
-  return 1 - (1 - baselineEfficiency) ** activeCoreCount;
-}
-
-export function activeCoreCount(ship: Ship): number {
-  return [...ship.parts.values()].filter(
-    (part) => part.partType === partType.core && part.powered,
-  ).length;
-}
 
 function drawRateFor(part: Part): number {
   if (part.partType === partType.engine) {

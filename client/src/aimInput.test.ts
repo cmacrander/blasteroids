@@ -12,7 +12,13 @@ function noseDirection(angle: number): [number, number] {
 describe("computeAimAngle", () => {
   const center = { x: 960, y: 540 };
 
-  it.each([
+  interface AimCase {
+    label: string;
+    cursor: { x: number; y: number };
+    expectedNose: [number, number];
+  }
+
+  const cases: AimCase[] = [
     {
       label: "north (cursor above center)",
       cursor: { x: 960, y: 200 },
@@ -38,11 +44,16 @@ describe("computeAimAngle", () => {
       cursor: { x: 1260, y: 240 }, // +300 x, -300 y (screen) from center: equal offsets
       expectedNose: [Math.SQRT1_2, Math.SQRT1_2],
     },
-  ])("points the nose at the cursor: $label", ({ cursor, expectedNose }) => {
-    const angle = computeAimAngle(cursor.x, cursor.y, center.x, center.y);
-    const [noseX, noseY] = noseDirection(angle);
+  ];
 
-    expect(noseX).toBeCloseTo(expectedNose[0], 6);
-    expect(noseY).toBeCloseTo(expectedNose[1], 6);
-  });
+  it.each(cases)(
+    "points the nose at the cursor: $label",
+    ({ cursor, expectedNose }) => {
+      const angle = computeAimAngle(cursor.x, cursor.y, center.x, center.y);
+      const [noseX, noseY] = noseDirection(angle);
+
+      expect(noseX).toBeCloseTo(expectedNose[0], 6);
+      expect(noseY).toBeCloseTo(expectedNose[1], 6);
+    },
+  );
 });

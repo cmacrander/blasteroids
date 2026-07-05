@@ -1,10 +1,6 @@
-// Mouse binding: steer the ship to face the cursor.
-import type { Room } from "colyseus.js";
-import type { MatchState } from "@blasteroids/shared";
-import { messageType, patchHz } from "@blasteroids/shared";
-
-// No point sending faster than the state broadcast rate the result rides on.
-const sendIntervalMs = 1000 / patchHz;
+// Mouse binding: steer the ship to face the cursor. Writes into the client
+// sim's controls; the sim sends the input packets (see clientSim.ts).
+import type { LocalControls } from "./clientSim";
 
 // The local player's ship is always rendered at screen center (the camera
 // follows it), so the cursor's offset from center is its aim direction.
@@ -25,21 +21,14 @@ export function computeAimAngle(
   return cursorAngle - Math.PI / 2;
 }
 
-export function attachAimInput(room: Room<MatchState>): () => void {
-  let lastSentAt = -Infinity;
-
+export function attachAimInput(controls: LocalControls): () => void {
   const handleMouseMove = (event: MouseEvent) => {
-    const now = performance.now();
-    if (now - lastSentAt < sendIntervalMs) return;
-    lastSentAt = now;
-
-    const angle = computeAimAngle(
+    controls.targetAngle = computeAimAngle(
       event.clientX,
       event.clientY,
       window.innerWidth / 2,
       window.innerHeight / 2,
     );
-    room.send(messageType.setAimAngle, angle);
   };
 
   window.addEventListener("mousemove", handleMouseMove);
