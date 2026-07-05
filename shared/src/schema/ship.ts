@@ -7,4 +7,8 @@ export class Ship extends Schema {
   @type(Body) body = new Body();
   @type({ map: Part }) parts = new MapSchema<Part>();
   @type("float32") storedEnergy = 0; // current capacitor charge, up to capacitorCapacityFor(this)
+  // Defrag downtime countdown (seconds); 0 = not defragging. Total is kept
+  // alongside so the client can draw a progress fraction.
+  @type("float32") defragRemaining = 0;
+  @type("float32") defragTotal = 0;
 }

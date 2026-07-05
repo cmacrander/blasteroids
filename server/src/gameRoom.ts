@@ -12,6 +12,13 @@ import {
   asteroidEntryMargin,
   asteroidDespawnMargin,
 } from "@blasteroids/shared";
+import type { Ship } from "@blasteroids/shared";
+import {
+  activation,
+  bestDefragArrangement,
+  applyArrangement,
+  defragDurationSeconds,
+} from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import {
   buildRandomAsteroid,
@@ -29,6 +36,7 @@ import {
   removeShipBody,
   getShipBody,
   addShipPartCollider,
+  resetShipColliders,
   createAsteroidBody,
   getAsteroidBody,
   removeAsteroidBody,
@@ -75,11 +83,14 @@ export class GameRoom extends Room<MatchState> {
     // tick's laser raycast would silently miss any asteroid entirely.
     stepPhysics();
 
+    // Engine/laser controls are dead while defragging (see "Scavenging" in
+    // gameDesign.md): the ship drifts until the rearrangement completes.
     this.onMessage(
       messageType.setEngineActivation,
       (client, message: unknown) => {
         const ship = this.state.players.get(client.sessionId)?.ship;
-        if (ship) applyActivation(ship, partType.engine, message);
+        if (ship && ship.defragRemaining <= 0)
+          applyActivation(ship, partType.engine, message);
       },
     );
 
@@ -87,9 +98,32 @@ export class GameRoom extends Room<MatchState> {
       messageType.setLaserActivation,
       (client, message: unknown) => {
         const ship = this.state.players.get(client.sessionId)?.ship;
-        if (ship) applyActivation(ship, partType.laser, message);
+        if (ship && ship.defragRemaining <= 0)
+          applyActivation(ship, partType.laser, message);
       },
     );
+
+    this.onMessage(messageType.defragment, (client) => {
+      const ship = this.state.players.get(client.sessionId)?.ship;
+      const body = getShipBody(client.sessionId);
+      if (!ship || !body || ship.defragRemaining > 0) return;
+
+      ship.defragTotal = defragDurationSeconds(ship.parts.size);
+      ship.defragRemaining = ship.defragTotal;
+      ship.parts.forEach((part) => {
+        if (
+          part.partType === partType.engine ||
+          part.partType === partType.laser
+        ) {
+          part.activation = activation.inactive;
+        }
+      });
+      // tickMovement/tickRotation are skipped while defragging, so any force
+      // or torque they applied last tick must be cleared now or it would keep
+      // accelerating the "drifting" ship for the whole downtime.
+      body.resetForces(true);
+      body.resetTorques(true);
+    });
 
     this.onMessage(messageType.setAimAngle, (client, message: unknown) => {
       const angle = parseAimAngle(message);
@@ -137,6 +171,10 @@ export class GameRoom extends Room<MatchState> {
       tickPowerBudget(ship, dt);
       const body = getShipBody(sessionId);
       if (!body) return;
+      if (ship.defragRemaining > 0) {
+        this.tickDefrag(ship, sessionId, dt);
+        return; // drifting: no thrust, steering, or lasers until done
+      }
       tickMovement(ship, body);
       const targetAngle = this.targetAngles.get(sessionId) ?? body.rotation();
       tickRotation(ship, body, targetAngle);
@@ -177,6 +215,23 @@ export class GameRoom extends Room<MatchState> {
     });
 
     this.tickAsteroidField();
+  }
+
+  // Counts down defrag downtime; on completion, rearranges the surviving
+  // parts (the arrangement is computed now, not at the start, so parts
+  // destroyed or built mid-defrag are accounted for) and swaps the physics
+  // colliders to the new layout.
+  private tickDefrag(ship: Ship, sessionId: string, dt: number): void {
+    ship.defragRemaining = Math.max(0, ship.defragRemaining - dt);
+    if (ship.defragRemaining > 0) return;
+
+    const arrangement = bestDefragArrangement(
+      [...ship.parts.values()],
+      Math.random,
+    );
+    applyArrangement(ship, arrangement);
+    resetShipColliders(sessionId, ship);
+    ship.defragTotal = 0;
   }
 
   // Asteroids drift forever and never bounce off the walls (see

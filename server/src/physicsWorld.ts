@@ -119,6 +119,26 @@ export function addShipPartCollider(
   partColliders.set(partKey, collider);
 }
 
+// Replaces a ship body's colliders to match its current part layout (after
+// defragmentation or part destruction). The body itself persists, so its
+// position and velocity carry over untouched.
+export function resetShipColliders(sessionId: string, ship: Ship): void {
+  const body = shipBodies.get(sessionId);
+  const partColliders = shipPartColliders.get(sessionId);
+  if (!body || !partColliders) return;
+  for (const collider of partColliders.values()) {
+    requireWorld().removeCollider(collider, true);
+  }
+  partColliders.clear();
+  ship.parts.forEach((part, key) => {
+    const collider = requireWorld().createCollider(
+      partColliderDesc(part),
+      body,
+    );
+    partColliders.set(key, collider);
+  });
+}
+
 export function removeShipBody(sessionId: string): void {
   const body = shipBodies.get(sessionId);
   if (!body) return;

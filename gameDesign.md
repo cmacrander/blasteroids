@@ -160,7 +160,9 @@ If a player disconnects mid-match, their ship is handled the same way as a loss 
 
 Parts which are not connected to any ship (they reached 0 HP and detached) retain their velocity but move without colliding with anything. The player can press a key at any time to capture parts that overlap with their ship. The game code then attempts to attach those parts to the player's ship, if possible, prioritizing engines at the rear and lasers at the front.
 
-At any time the player may choose to "defragment" their ship. The game calculates three possible arrangements of their existing parts, preferring symmetry and engines at the back. The arrangements differ with their placement of lasers and a random factor. The player can select an arrangement or cancel. If they choose an arrangement, their engines and lasers turn off for a period of time. The ship re-appears in the new arrangement and then works as normal.
+At any time the player may choose to "defragment" their ship (default key: tab). The game calculates three possible arrangements of their existing parts, preferring symmetry and engines at the back. The arrangements differ with their placement of lasers and a random factor. For now the most compact candidate (most shared part edges) is applied automatically; a UI to preview the three candidates and select or cancel is deferred.
+
+Defragmentation downtime: engines and lasers switch off and ignore input, the ship drifts on its current velocity with no steering, and it remains collidable and damageable the whole time -- defragging mid-fight is a real risk. The downtime scales with ship size (0.1 s per part, minimum 2 s) and a progress bar is shown on the HUD. The new arrangement is computed at the end of the downtime, not the start, so parts destroyed or built during it are accounted for. Building is still allowed while defragging; power generation and the capacitor keep running.
 
 The defragmentation algorithm runs three times with different random seeds to produce three candidate arrangements:
 
@@ -188,9 +190,11 @@ defragment(inventory):
   repeat halfCount.laser:
     place(grid, extremeSlot(grid, x > 0, maxY), laser)
 
-  // Mirror right half to left half
+  // Mirror right half to left half, across the boundary between columns
+  // 0 and 1 (NOT across a center column: mirroring x to -x would leave the
+  // two halves disconnected, since nothing occupies x = 0)
   for (x, y, type) in grid:
-    grid.add(-x, y, type)
+    grid.add(1 - x, y, type)
 
   // Second pass: odd remainders, anywhere
   for type in [core, power, engine, laser]:
@@ -221,6 +225,7 @@ Implementation notes:
 
 - If halfCount.core == 0, skip the seed and defer to the second pass. Add a general "seed if grid is empty" guard at the start of each phase so the first placed part of any type can anchor the grid.
 - Engine and laser orientation is implied by placement position: an engine at the rearmost slot faces south (exhaust = south); a laser at the frontmost slot faces north (lens = north). Store the facing direction explicitly on each placed part so the renderer knows which way to draw the sprite.
+- Candidate slots respect the forbidden-edge rule everywhere (including the second pass): no part may be placed in the cell an engine exhaust or laser lens points into, and a placed engine/laser must have its own exhaust/lens cell open.
 
 ### Harvesting
 

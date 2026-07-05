@@ -241,6 +241,38 @@ function drawBuildHints(
     );
   });
   ctx.globalAlpha = 1;
+  ctx.fillText(
+    `${bindingLabel(keyBindings.defragment)} defrag`,
+    x,
+    y + hudBarHeight + lineHeight,
+  );
+}
+
+// Defrag progress, drawn as a horizontal bar just above the (screen-centered)
+// local ship while its downtime runs.
+function drawDefragProgress(
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  fraction: number,
+) {
+  const width = 120;
+  const height = 10;
+  const x = canvasWidth / 2 - width / 2;
+  const y = canvasHeight / 2 - 80;
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#0f8";
+  ctx.fillRect(x, y, width * fraction, height);
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, width, height);
+
+  ctx.font = "12px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.fillStyle = "#fff";
+  ctx.fillText("defragmenting...", canvasWidth / 2, y - 4);
 }
 
 // A transient center-screen warning (e.g. a rejected build).
@@ -482,6 +514,15 @@ export function GameCanvas({ room, state, sessionId }: Props) {
           barY,
           myPlayer.supplies,
         );
+
+        if (myShip.defragRemaining > 0 && myShip.defragTotal > 0) {
+          drawDefragProgress(
+            ctx,
+            canvas.width,
+            canvas.height,
+            1 - myShip.defragRemaining / myShip.defragTotal,
+          );
+        }
       }
 
       const warning = warningRef.current;

@@ -36,6 +36,7 @@ export const messageType = {
   spawnExplosion: "spawnExplosion",
   buildPart: "buildPart",
   buildRejected: "buildRejected",
+  defragment: "defragment",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
@@ -131,6 +132,11 @@ export const partBuildCost = 20;
 
 // HP a part has when freshly built or spawned.
 export const partMaxHp = 100;
+
+// Defragmentation downtime: the ship drifts with engines and lasers off (and
+// stays vulnerable) for a duration that scales with ship size.
+export const defragSecondsPerPart = 0.1;
+export const defragMinSeconds = 2;
 
 // Flat and permanent: unlike capacitorCapacityFor, this does not scale with
 // ship size. 10x the cost of a single part.

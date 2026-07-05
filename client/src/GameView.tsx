@@ -7,6 +7,7 @@ import { attachEngineInput } from "./engineInput";
 import { attachLaserInput } from "./laserInput";
 import { attachAimInput } from "./aimInput";
 import { attachBuildInput } from "./buildInput";
+import { attachDefragInput } from "./defragInput";
 import { logGameConstants } from "./logGameConstants";
 
 interface Props {
@@ -19,6 +20,7 @@ export function GameView({ room, onExit }: Props) {
   useEffect(() => attachLaserInput(room), [room]);
   useEffect(() => attachAimInput(room), [room]);
   useEffect(() => attachBuildInput(room), [room]);
+  useEffect(() => attachDefragInput(room), [room]);
   useEffect(logGameConstants, []);
 
   return (
