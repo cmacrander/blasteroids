@@ -8,9 +8,19 @@ import {
   simulationHz,
   messageType,
   partType,
+  asteroidEntryMargin,
+  asteroidDespawnMargin,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
-import { buildAsteroid } from "./starterAsteroid";
+import {
+  buildRandomAsteroid,
+  randomAsteroidCellCount,
+  randomAsteroidVelocity,
+  randomAsteroidEntry,
+  pickAsteroidSpawnPoints,
+  isFarOutOfBounds,
+} from "./randomAsteroid";
+import { isAsteroidDestroyed } from "./asteroidShell";
 import { tickPowerBudget } from "./powerBudget";
 import {
   initPhysics,
@@ -18,6 +28,8 @@ import {
   removeShipBody,
   getShipBody,
   createAsteroidBody,
+  getAsteroidBody,
+  removeAsteroidBody,
   stepPhysics,
 } from "./physicsWorld";
 import { tickMovement, capSpeed } from "./movement";
@@ -33,18 +45,30 @@ export class GameRoom extends Room<MatchState> {
 
   private accumulatorMs = 0;
   private targetAngles = new Map<string, number>();
+  private nextAsteroidId = 0;
 
   override async onCreate(): Promise<void> {
     await initPhysics();
     this.setState(new MatchState());
 
-    // One asteroid near the spawn point so there's something to see (and mine) right away.
-    const asteroid = buildAsteroid(mapWidth / 2 + 15, mapHeight / 2 + 10);
-    this.state.asteroids.set("asteroid-1", asteroid);
-    createAsteroidBody("asteroid-1", asteroid);
+    // Scatter a field of roundish asteroids across the map, clear of the
+    // player spawn point (see randomAsteroid.ts for density/size/speed).
+    const spawnPoints = pickAsteroidSpawnPoints(
+      mapWidth / 2,
+      mapHeight / 2,
+      15,
+    );
+    for (const point of spawnPoints) {
+      this.spawnAsteroid(
+        point.x,
+        point.y,
+        randomAsteroidVelocity(),
+        randomAsteroidCellCount(),
+      );
+    }
     // Rapier's raycast query structures aren't built until the first step,
     // even for colliders that already exist -- without this, the very first
-    // tick's laser raycast would silently miss the asteroid entirely.
+    // tick's laser raycast would silently miss any asteroid entirely.
     stepPhysics();
 
     this.onMessage(
@@ -121,6 +145,73 @@ export class GameRoom extends Room<MatchState> {
       ship.body.vx = velocity.x;
       ship.body.vy = velocity.y;
     });
+
+    this.state.asteroids.forEach((asteroid, id) => {
+      const body = getAsteroidBody(id);
+      if (!body) return;
+      const translation = body.translation();
+      asteroid.body.x = translation.x;
+      asteroid.body.y = translation.y;
+    });
+
+    this.tickAsteroidField();
+  }
+
+  // Asteroids drift forever and never bounce off the walls (see
+  // randomAsteroid.ts), so the field would otherwise slowly leak out of
+  // bounds, and a fully-mined asteroid would otherwise just sit in state
+  // forever as an empty shell. Removing either kind immediately spawns one
+  // replacement entering from just outside an edge, aimed back in -- a
+  // direct one-for-one swap, so the in-map count stays exactly constant
+  // rather than merely trending toward some average.
+  private tickAsteroidField(): void {
+    const departed: string[] = [];
+    this.state.asteroids.forEach((asteroid, id) => {
+      if (
+        isFarOutOfBounds(
+          asteroid.body.x,
+          asteroid.body.y,
+          asteroidDespawnMargin,
+        ) ||
+        isAsteroidDestroyed(asteroid)
+      ) {
+        departed.push(id);
+      }
+    });
+
+    for (const id of departed) {
+      removeAsteroidBody(id);
+      this.state.asteroids.delete(id);
+
+      const entry = randomAsteroidEntry(asteroidEntryMargin);
+      this.spawnAsteroid(
+        entry.x,
+        entry.y,
+        { x: entry.vx, y: entry.vy },
+        randomAsteroidCellCount(),
+      );
+    }
+
+    // Same reason as the initial-spawn step in onCreate: a freshly created
+    // collider isn't raycast-queryable until the next step, and any just
+    // spawned above would otherwise have to wait a full tick to become
+    // hittable.
+    if (departed.length > 0) stepPhysics();
+  }
+
+  private spawnAsteroid(
+    x: number,
+    y: number,
+    velocity: { x: number; y: number },
+    cellCount: number,
+  ): void {
+    const asteroid = buildRandomAsteroid(x, y, cellCount);
+    asteroid.body.vx = velocity.x;
+    asteroid.body.vy = velocity.y;
+
+    const id = `asteroid-${(this.nextAsteroidId++).toString()}`;
+    this.state.asteroids.set(id, asteroid);
+    createAsteroidBody(id, asteroid, velocity);
   }
 
   override onJoin(client: Client): void {

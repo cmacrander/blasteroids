@@ -89,6 +89,26 @@ export const suppliesPerCellDestroyed = 2;
 // occasional flash while still reading as "something is taking damage".
 export const explosionChance = 0.15;
 
+// Field population: roughly one asteroid per this many square units of map
+// area (200x200 map / 2500 = 16 asteroids), scattered at spawn with a random
+// roundish shape between the cell-count bounds below and a slow drift.
+export const asteroidAreaPerSpawn = 2500;
+export const asteroidMinCellCount = 4;
+export const asteroidMaxCellCount = 24;
+export const asteroidMinSpeed = 0.5; // world units/s
+export const asteroidMaxSpeed = 2; // world units/s -- always slow vs ships (maxSpeed 30)
+
+// Asteroids drift forever and never bounce off the boundary walls (that's
+// the same kinematic-body property that gives ships no momentum transfer on
+// impact -- see physicsWorld.ts), so the field would otherwise slowly leak
+// out of bounds, and a fully-mined asteroid would otherwise sit in state
+// forever as an empty shell. Every despawn (drifted too far out, or fully
+// destroyed) immediately spawns one replacement just outside the map aimed
+// inward, so the in-map count stays exactly constant rather than just
+// trending toward some average.
+export const asteroidEntryMargin = 10; // spawn this far outside the map edge
+export const asteroidDespawnMargin = 40; // remove once drifted this far out
+
 // Placeholder until the Building feature (see "Building" in gameDesign.md)
 // actually exists -- needed only to derive suppliesCap below.
 export const partBuildCost = 20;

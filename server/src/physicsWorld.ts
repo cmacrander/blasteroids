@@ -137,15 +137,19 @@ function addCellCollider(
   colliderToAsteroidCell.set(collider.handle, { asteroidId, cellIndex: index });
 }
 
+// Kinematic-velocity-based rather than fixed: it drifts at a constant
+// velocity every step with no manual driving needed, but (unlike a dynamic
+// body) is never affected by collision forces from the ships that bump into
+// it -- no momentum transfer, for free, straight from Rapier's body types.
 export function createAsteroidBody(
   asteroidId: string,
   asteroid: Asteroid,
+  velocity: { x: number; y: number } = { x: 0, y: 0 },
 ): RAPIER.RigidBody {
   const body = requireWorld().createRigidBody(
-    RAPIER.RigidBodyDesc.fixed().setTranslation(
-      asteroid.body.x,
-      asteroid.body.y,
-    ),
+    RAPIER.RigidBodyDesc.kinematicVelocityBased()
+      .setTranslation(asteroid.body.x, asteroid.body.y)
+      .setLinvel(velocity.x, velocity.y),
   );
   const shell = new Map<number, RAPIER.Collider>();
   asteroidBodies.set(asteroidId, body);
@@ -183,6 +187,12 @@ export function onAsteroidCellDestroyed(
     if (!isBoundaryCell(asteroid, neighbor.col, neighbor.row)) continue;
     addCellCollider(asteroidId, asteroid, body, shell, neighbor.index);
   }
+}
+
+export function getAsteroidBody(
+  asteroidId: string,
+): RAPIER.RigidBody | undefined {
+  return asteroidBodies.get(asteroidId);
 }
 
 export function removeAsteroidBody(asteroidId: string): void {

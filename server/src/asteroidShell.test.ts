@@ -5,6 +5,7 @@ import {
   boundaryCellIndices,
   isBoundaryCell,
   neighborsOf,
+  isAsteroidDestroyed,
 } from "./asteroidShell";
 
 function makeAsteroid(
@@ -50,5 +51,19 @@ describe("boundaryCellIndices", () => {
     expect(neighborsOf(asteroid, 0, 0)).toHaveLength(2); // corner
     expect(neighborsOf(asteroid, 1, 0)).toHaveLength(3); // edge
     expect(neighborsOf(asteroid, 1, 1)).toHaveLength(4); // center
+  });
+});
+
+describe("isAsteroidDestroyed", () => {
+  it("is false while any cell still has hp", () => {
+    const asteroid = makeAsteroid(2, 1, [0, 50]);
+
+    expect(isAsteroidDestroyed(asteroid)).toBe(false);
+  });
+
+  it("is true once every cell has been mined out", () => {
+    const asteroid = makeAsteroid(2, 1, [0, 0]);
+
+    expect(isAsteroidDestroyed(asteroid)).toBe(true);
   });
 });

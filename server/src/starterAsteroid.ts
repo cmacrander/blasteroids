@@ -1,4 +1,6 @@
-// Builds a simple solid-square asteroid: an NxN grid of rock cells.
+// Builds a simple solid-square asteroid: an NxN grid of rock cells. Fixed and
+// deterministic on purpose -- tests rely on this exact shape/size; real
+// gameplay spawns use randomAsteroid.ts's roundish, variously-sized ones.
 import { Asteroid } from "@blasteroids/shared";
 
 const gridSize = 4;

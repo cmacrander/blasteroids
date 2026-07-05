@@ -224,18 +224,24 @@ Implementation notes:
 
 ### Harvesting
 
-The game includes natural asteroids. They are pre-populated on game start, and also are spawned in regions far from players.
+The game includes natural asteroids. The map is pre-populated with a field of them at match start, roughly one per 50x50 units of map area. Each has a random roundish shape (4 to 24 rock cells) and drifts at a slow, random constant velocity.
 
 Asteroids are conceptually ships made of "rock" cells (1 square unit, all attached, a defined HP per unit). They can be damaged by lasers. When a rock cell reaches 0 HP it is destroyed, and the player who destroyed it gains "supplies" as a type of currency.
+
+#### Asteroid movement and field replenishment
+
+Asteroids are **kinematic** rigid bodies, not dynamic ones: each is assigned a constant velocity once, at spawn, and drifts by it forever with no forces acting on it. This is also what gives ship-asteroid collisions their one-way behavior for free, straight from the physics engine's body-type semantics, with no custom code needed: a ship colliding with an asteroid is blocked/deflected as if it hit an immovable object, while the asteroid itself is entirely unaffected and keeps its original velocity -- there is no momentum transfer from ships to asteroids.
+
+Because asteroids never bounce off the map's boundary walls (kinematic bodies ignore collision response), the field would otherwise slowly leak out of bounds over the course of a match. To keep the in-map count constant, every time an asteroid either drifts far enough out of bounds to never return, or is fully mined out, it's removed and immediately replaced by a new one spawning just outside a random map edge with a velocity aimed back inward. This is a direct one-for-one swap, not a probabilistic top-up, so the total count stays fixed at whatever the initial field size was rather than merely trending toward it.
 
 #### Asteroid performance model
 
 Asteroids are many and passive, so unlike ships they are not built from one collider per cell. That would scale collider count with asteroid _area_ and dominate physics cost. Instead each asteroid separates two concerns that a ship's parts conflate:
 
-- **Damage grid** — a logical grid of rock cells, each with HP. This is plain data, not physics. It drives destruction, supplies, and connectivity (flood-fill), exactly like a ship's part graph, but it owns no colliders of its own.
+- **Damage grid** — a logical grid of rock cells, each with HP. This is plain data, not physics. It drives destruction and supplies, exactly like a ship's part graph, but it owns no colliders of its own.
 - **Collision shell** — the asteroid's physical shape, built as **perimeter cuboids**: one 1-unit box collider per _boundary_ cell only (a cell with at least one open edge, i.e. missing a N/S/E/W neighbor). Interior cells get no collider because they can never participate in a contact. All cuboids attach to the asteroid's single rigid body as a compound. For a solid k x k asteroid this is ~4k-4 colliders instead of k squared.
 
-The shell is rebuilt event-driven, not per tick: when a cell is destroyed, remove its cuboid (if it had one) and promote any newly-exposed neighbor cells to colliders. If destruction splits an asteroid, run the same flood-fill used for ships over the rock grid, then rebuild a shell per resulting group.
+The shell is rebuilt event-driven, not per tick: when a cell is destroyed, remove its cuboid (if it had one) and promote any newly-exposed neighbor cells to colliders.
 
 Lasers damage asteroids by a **grid march**, not by hitting per-cell colliders: raycast to the shell to find the entry point, then walk the ray across the asteroid's local grid (DDA / Bresenham) applying per-cell HP loss and awarding supplies cell by cell, up to the beam's remaining range. This keeps damage resolution independent of collider count and gives direct control over how far a beam penetrates.
 

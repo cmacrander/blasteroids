@@ -75,3 +75,9 @@ export function boundaryCellIndices(asteroid: Asteroid): number[] {
   }
   return result;
 }
+
+// True once every cell has been mined out -- nothing left to hit or collide
+// with, so the asteroid is done and should be removed from play.
+export function isAsteroidDestroyed(asteroid: Asteroid): boolean {
+  return asteroid.cells.every((hp) => hp <= 0);
+}
