@@ -1,7 +1,7 @@
 // Fixed match parameters and enum codes shared by client and server.
 
-export const mapWidth = 1000;
-export const mapHeight = 1000;
+export const mapWidth = 200;
+export const mapHeight = 200;
 
 export const simulationHz = 60;
 export const patchHz = 20;
@@ -18,11 +18,14 @@ export type Facing = (typeof facing)[keyof typeof facing];
 export const activation = { inactive: 0, active: 1, boosted: 2 } as const;
 export type Activation = (typeof activation)[keyof typeof activation];
 
-// Names of messages the client sends to the server room.
+// Names of messages sent between client and server room. Most are player
+// input (client -> server); spawnExplosion is server -> client, a one-off
+// visual event rather than synced state (see explosionChance below).
 export const messageType = {
   setEngineActivation: "setEngineActivation",
   setLaserActivation: "setLaserActivation",
   setAimAngle: "setAimAngle",
+  spawnExplosion: "spawnExplosion",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
@@ -67,6 +70,29 @@ export const maxAngularSpeed = Math.PI; // rad/s, half a turn per second
 // maxAngularSpeed in about a second: 12000 * 1.5 / 5667 ~= 3.18 rad/s^2.
 export const engineTurnTorque = 12000;
 
-// Initial placeholder length for the laser beam (world units, straight from
-// the lens); expect to retune once it's visible in play.
+// Fixed beam length (world units, straight from the lens), matching the
+// laserActive/laserBoosted sprite's drawn length exactly -- unlike thrust and
+// damage, range does not scale with power efficiency.
 export const laserRange = 15;
+
+// Harvesting: see "Harvesting" in gameDesign.md. Both rates are pre-efficiency,
+// scaled by the same powerEfficiency(activeCoreCount) curve as thrust -- a
+// starter ship's single core cuts these to a quarter.
+export const laserDamageRate = 20; // HP/s per active laser
+export const laserBoostDamageRate = 60; // HP/s per boosted laser (3x active)
+export const suppliesPerCellDestroyed = 2;
+
+// Chance, per damage application (not per tick of firing -- a single tick can
+// damage several cells at once), that it spawns a visible explosion. Damage
+// itself already happens every tick a beam connects; spawning a sprite that
+// often would be constant visual noise, so this thins it out to an
+// occasional flash while still reading as "something is taking damage".
+export const explosionChance = 0.15;
+
+// Placeholder until the Building feature (see "Building" in gameDesign.md)
+// actually exists -- needed only to derive suppliesCap below.
+export const partBuildCost = 20;
+
+// Flat and permanent: unlike capacitorCapacityFor, this does not scale with
+// ship size. 10x the cost of a single part.
+export const suppliesCap = partBuildCost * 10;

@@ -21,7 +21,7 @@ function findPart(
 // with the one under test once stepPhysics() advances the whole world.
 describe("tickRotation", () => {
   it("reports zero available torque with no engines attached", () => {
-    const ship = buildStarterShip(0, 0);
+    const ship = buildStarterShip(20, 100);
     const engine = findPart(ship, partType.engine);
     if (engine) engine.hp = 0;
     const body = createShipBody("no-torque-test", ship);
@@ -30,7 +30,7 @@ describe("tickRotation", () => {
   });
 
   it("provides torque from an attached engine regardless of activation", () => {
-    const ship = buildStarterShip(100, 0);
+    const ship = buildStarterShip(40, 100);
     const body = createShipBody("free-rotation-test", ship);
 
     // No activation set, no power budgeting run -- rotation costs nothing.
@@ -38,7 +38,7 @@ describe("tickRotation", () => {
   });
 
   it("spins the ship toward a target angle", () => {
-    const ship = buildStarterShip(200, 0);
+    const ship = buildStarterShip(60, 100);
     const body = createShipBody("spin-test", ship);
     expect(maxAvailableTorque(ship, body)).toBeGreaterThan(0);
 
@@ -50,7 +50,7 @@ describe("tickRotation", () => {
   });
 
   it("does not apply torque once within the angle dead zone", () => {
-    const ship = buildStarterShip(400, 0);
+    const ship = buildStarterShip(80, 100);
     const body = createShipBody("deadzone-test", ship);
     tickRotation(ship, body, body.rotation());
     stepPhysics();
@@ -59,7 +59,7 @@ describe("tickRotation", () => {
   });
 
   it("damps residual angular velocity while within the dead zone", () => {
-    const ship = buildStarterShip(1000, 0);
+    const ship = buildStarterShip(100, 100);
     const body = createShipBody("damping-test", ship);
     body.setAngvel(0.5, true);
 
@@ -73,7 +73,7 @@ describe("tickRotation", () => {
   });
 
   it("converges on the target angle without overshooting far past it", () => {
-    const ship = buildStarterShip(800, 0);
+    const ship = buildStarterShip(120, 100);
     const body = createShipBody("converge-test", ship);
     const targetAngle = Math.PI / 2;
 
@@ -97,7 +97,7 @@ describe("tickRotation", () => {
 
 describe("capAngularSpeed", () => {
   it("clamps angular velocity to the cap", () => {
-    const ship = buildStarterShip(600, 0);
+    const ship = buildStarterShip(140, 100);
     const body = createShipBody("angular-cap-test", ship);
     body.setAngvel(maxAngularSpeed * 5, true);
 

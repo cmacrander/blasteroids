@@ -10,16 +10,19 @@ import {
   partType,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
+import { buildAsteroid } from "./starterAsteroid";
 import { tickPowerBudget } from "./powerBudget";
 import {
   initPhysics,
   createShipBody,
   removeShipBody,
   getShipBody,
+  createAsteroidBody,
   stepPhysics,
 } from "./physicsWorld";
 import { tickMovement, capSpeed } from "./movement";
 import { tickRotation, capAngularSpeed } from "./rotation";
+import { tickLaserDamage, type ExplosionSpawn } from "./laserDamage";
 import { applyActivation, parseAimAngle } from "./playerInput";
 
 const fixedDtMs = 1000 / simulationHz;
@@ -34,6 +37,15 @@ export class GameRoom extends Room<MatchState> {
   override async onCreate(): Promise<void> {
     await initPhysics();
     this.setState(new MatchState());
+
+    // One asteroid near the spawn point so there's something to see (and mine) right away.
+    const asteroid = buildAsteroid(mapWidth / 2 + 15, mapHeight / 2 + 10);
+    this.state.asteroids.set("asteroid-1", asteroid);
+    createAsteroidBody("asteroid-1", asteroid);
+    // Rapier's raycast query structures aren't built until the first step,
+    // even for colliders that already exist -- without this, the very first
+    // tick's laser raycast would silently miss the asteroid entirely.
+    stepPhysics();
 
     this.onMessage(
       messageType.setEngineActivation,
@@ -72,6 +84,7 @@ export class GameRoom extends Room<MatchState> {
   }
 
   private tick(dt: number): void {
+    const explosions: ExplosionSpawn[] = [];
     this.state.players.forEach((player, sessionId) => {
       const ship = player.ship;
       if (!ship) return;
@@ -81,7 +94,16 @@ export class GameRoom extends Room<MatchState> {
       tickMovement(ship, body);
       const targetAngle = this.targetAngles.get(sessionId) ?? body.rotation();
       tickRotation(ship, body, targetAngle);
+      explosions.push(
+        ...tickLaserDamage(player, ship, body, this.state.asteroids, dt),
+      );
     });
+
+    // One batched broadcast per tick rather than one per explosion -- keeps
+    // this a fixed-cost message regardless of how many players are mining.
+    if (explosions.length > 0) {
+      this.broadcast(messageType.spawnExplosion, explosions);
+    }
 
     stepPhysics();
 

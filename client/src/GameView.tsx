@@ -21,7 +21,7 @@ export function GameView({ room, onExit }: Props) {
 
   return (
     <div style={{ position: "relative", width: "100vw", height: "100vh" }}>
-      <GameCanvas state={room.state} sessionId={room.sessionId} />
+      <GameCanvas room={room} state={room.state} sessionId={room.sessionId} />
       <button
         onClick={onExit}
         style={{ position: "absolute", top: 16, right: 16 }}

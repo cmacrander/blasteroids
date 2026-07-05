@@ -14,7 +14,7 @@ import { activeCoreCount, powerEfficiency } from "./powerBudget";
 // A part's facing direction in the ship's own unrotated frame, where +x is
 // east and +y is north (matches gameDesign.md's map orientation). Add the
 // ship's current rotation to get the world-space direction.
-const facingRadians: Record<number, number> = {
+export const facingRadians: Record<number, number> = {
   [facing.north]: Math.PI / 2,
   [facing.east]: 0,
   [facing.south]: -Math.PI / 2,

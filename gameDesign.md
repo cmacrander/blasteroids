@@ -69,7 +69,7 @@ The Colyseus monitor UI is available at `http://localhost:2567/colyseus` during 
 
 ## Map
 
-A bounded rectangle, larger than the screen. We'll start with 1,000 x 1,000 units (where 1 unit is the size of a square sprite). The edges are solid walls with infinite mass — ships and debris bounce off them.
+A bounded rectangle, larger than the screen. We'll start with 200 x 200 units (where 1 unit is the size of a square sprite). The edges are solid walls with infinite mass and zero restitution — ships and debris stop dead against them rather than bouncing off.
 
 ## Matches and instances
 
@@ -113,7 +113,7 @@ A player's ship is made of square parts, where each part is one of these types:
   - the emitted laser beam extends a fixed length (in world units) in a straight line from the lens
   - objects whose hitbox the beam intersects take damage every tick
   - has a boost mode that consumes additional power and deals additional damage
-  - has a baseline efficiency rating (starts low, ~25%) that limits the range of the laser beam and its damage per tick.
+  - has a baseline efficiency rating (starts low, ~25%) that limits its damage per tick. Range is fixed, matching the beam's fixed visual length, and does not scale with efficiency.
 
 All ship parts:
 

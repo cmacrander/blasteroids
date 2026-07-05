@@ -19,7 +19,7 @@ function findPart(
 
 describe("tickMovement", () => {
   it("accelerates a 4-part ship at 3 m/s^2 when its engine is active", () => {
-    const ship = buildStarterShip(0, 0);
+    const ship = buildStarterShip(20, 100);
     const engine = findPart(ship, partType.engine);
     if (engine) engine.activation = activation.active;
 
@@ -36,7 +36,7 @@ describe("tickMovement", () => {
   });
 
   it("does not exceed the speed cap", () => {
-    const ship = buildStarterShip(0, 0);
+    const ship = buildStarterShip(40, 100);
     const body = createShipBody("cap-test", ship);
     body.setLinvel({ x: maxSpeed * 2, y: 0 }, true);
 

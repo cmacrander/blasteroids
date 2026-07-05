@@ -1,5 +1,6 @@
 // Canvas renderer: draws every ship's parts each frame, camera on the local player.
 import { useEffect, useRef } from "react";
+import type { Room } from "colyseus.js";
 import type { MatchState, Part } from "@blasteroids/shared";
 import {
   partType,
@@ -8,6 +9,8 @@ import {
   mapWidth,
   mapHeight,
   capacitorCapacityFor,
+  suppliesCap,
+  messageType,
 } from "@blasteroids/shared";
 
 const pixelsPerUnit = 40; // screen pixels per world unit (one part is one unit)
@@ -24,6 +27,7 @@ const spriteUrls = {
   laser: "/sprites/laser.png",
   laserActive: "/sprites/laserActive.png",
   laserBoosted: "/sprites/laserBoosted.png",
+  rock: "/sprites/rock.png",
 } as const;
 type SpriteKey = keyof typeof spriteUrls;
 const spriteKeys: SpriteKey[] = [
@@ -35,6 +39,7 @@ const spriteKeys: SpriteKey[] = [
   "laser",
   "laserActive",
   "laserBoosted",
+  "rock",
 ];
 
 // The plume/beam only makes sense to show if the part is both requesting
@@ -158,36 +163,93 @@ function drawStarfield(
   ctx.globalAlpha = 1;
 }
 
-// Fixed screen-space HUD element showing the local ship's capacitor charge.
-const energyBarWidth = 20;
-const energyBarHeight = 120;
-const energyBarMargin = 20;
+// Fixed screen-space HUD bars: capacitor charge and, beside it, supplies.
+const hudBarWidth = 20;
+const hudBarHeight = 120;
+const hudBarMargin = 20;
 
-function drawEnergyBar(
+function drawVerticalBar(
   ctx: CanvasRenderingContext2D,
-  canvasHeight: number,
+  x: number,
+  y: number,
   fraction: number,
+  fillColor: string,
 ) {
-  const x = energyBarMargin;
-  const y = canvasHeight - energyBarMargin - energyBarHeight;
-  const fillHeight = energyBarHeight * fraction;
+  const fillHeight = hudBarHeight * fraction;
 
   ctx.globalAlpha = 1;
-  ctx.fillStyle = "#0cf";
-  ctx.fillRect(x, y + energyBarHeight - fillHeight, energyBarWidth, fillHeight);
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(x, y + hudBarHeight - fillHeight, hudBarWidth, fillHeight);
 
   ctx.strokeStyle = "#fff";
   ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, energyBarWidth, energyBarHeight);
+  ctx.strokeRect(x, y, hudBarWidth, hudBarHeight);
+}
+
+// A world-space explosion burst, drawn as a growing-then-fading ring rather
+// than a sprite -- purely local, no asset needed, and easing size/alpha over
+// its lifetime reads as an impact flash on its own.
+interface Explosion {
+  x: number;
+  y: number;
+  spawnedAt: number;
+}
+
+const explosionLifetimeMs = 350;
+const explosionMaxRadius = 18; // screen pixels
+
+function drawExplosion(
+  ctx: CanvasRenderingContext2D,
+  screenX: number,
+  screenY: number,
+  age: number,
+) {
+  const progress = age / explosionLifetimeMs;
+  const radius = explosionMaxRadius * Math.sin(progress * (Math.PI / 2));
+  const alpha = 1 - progress;
+
+  const gradient = ctx.createRadialGradient(
+    screenX,
+    screenY,
+    0,
+    screenX,
+    screenY,
+    radius,
+  );
+  gradient.addColorStop(0, `rgba(255, 255, 220, ${alpha.toString()})`);
+  gradient.addColorStop(0.5, `rgba(255, 150, 40, ${(alpha * 0.8).toString()})`);
+  gradient.addColorStop(1, "rgba(255, 60, 0, 0)");
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 interface Props {
+  room: Room<MatchState>;
   state: MatchState;
   sessionId: string;
 }
 
-export function GameCanvas({ state, sessionId }: Props) {
+export function GameCanvas({ room, state, sessionId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const explosionsRef = useRef<Explosion[]>([]);
+
+  useEffect(() => {
+    room.onMessage(
+      messageType.spawnExplosion,
+      (spawns: { x: number; y: number }[]) => {
+        const now = performance.now();
+        for (const spawn of spawns) {
+          explosionsRef.current.push({ ...spawn, spawnedAt: now });
+        }
+      },
+    );
+    // colyseus.js has no per-type listener removal; harmless to leave
+    // attached for the room's lifetime, which matches this component's.
+  }, [room]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -207,6 +269,7 @@ export function GameCanvas({ state, sessionId }: Props) {
       laser: new Image(),
       laserActive: new Image(),
       laserBoosted: new Image(),
+      rock: new Image(),
     };
     for (const key of spriteKeys) {
       images[key].src = spriteUrls[key];
@@ -219,7 +282,8 @@ export function GameCanvas({ state, sessionId }: Props) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Camera follows the local player's ship; fall back to map centre.
-      const myShip = state.players.get(sessionId)?.ship;
+      const myPlayer = state.players.get(sessionId);
+      const myShip = myPlayer?.ship;
       const camX = myShip ? myShip.body.x : mapWidth / 2;
       const camY = myShip ? myShip.body.y : mapHeight / 2;
 
@@ -279,12 +343,64 @@ export function GameCanvas({ state, sessionId }: Props) {
         });
       });
 
+      state.asteroids.forEach((asteroid) => {
+        const image = images.rock;
+        if (!image.complete || image.naturalWidth === 0) return;
+
+        const angle = asteroid.body.angle;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+
+        asteroid.cells.forEach((hp, index) => {
+          if (hp <= 0) return;
+          const col = index % asteroid.gridWidth;
+          const row = Math.floor(index / asteroid.gridWidth);
+          const localX = asteroid.originX + col;
+          const localY = asteroid.originY + row;
+          const worldX = asteroid.body.x + localX * cos - localY * sin;
+          const worldY = asteroid.body.y + localX * sin + localY * cos;
+
+          ctx.save();
+          ctx.translate(toScreenX(worldX), toScreenY(worldY));
+          ctx.rotate(-angle);
+          ctx.drawImage(
+            image,
+            -pixelsPerUnit / 2,
+            -pixelsPerUnit / 2,
+            pixelsPerUnit,
+            pixelsPerUnit,
+          );
+          ctx.restore();
+        });
+      });
+
+      const now = performance.now();
+      explosionsRef.current = explosionsRef.current.filter((explosion) => {
+        const age = now - explosion.spawnedAt;
+        if (age >= explosionLifetimeMs) return false;
+        drawExplosion(ctx, toScreenX(explosion.x), toScreenY(explosion.y), age);
+        return true;
+      });
+
       if (myShip) {
-        const fraction = Math.min(
+        const barY = canvas.height - hudBarMargin - hudBarHeight;
+        const energyFraction = Math.min(
           1,
           Math.max(0, myShip.storedEnergy / capacitorCapacityFor(myShip)),
         );
-        drawEnergyBar(ctx, canvas.height, fraction);
+        drawVerticalBar(ctx, hudBarMargin, barY, energyFraction, "#0cf");
+
+        const suppliesFraction = Math.min(
+          1,
+          Math.max(0, myPlayer.supplies / suppliesCap),
+        );
+        drawVerticalBar(
+          ctx,
+          hudBarMargin * 2 + hudBarWidth,
+          barY,
+          suppliesFraction,
+          "#fc0",
+        );
       }
 
       animId = requestAnimationFrame(draw);
