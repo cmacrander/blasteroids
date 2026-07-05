@@ -1,7 +1,7 @@
 ---
 name: feedback_verification_scope
 description: Stop spinning up more temp verification scripts once core behavior is proven via tests and one live check; clean up and summarize instead
-metadata: 
+metadata:
   node_type: memory
   type: feedback
   originSessionId: 6784a6dc-2db3-42db-a2fb-e93632f37772

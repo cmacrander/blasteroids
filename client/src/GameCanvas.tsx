@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import type { Room } from "colyseus.js";
 import type { MatchState, Part } from "@blasteroids/shared";
+import type { BuildRejection } from "@blasteroids/shared";
 import {
   partType,
   activation,
@@ -10,8 +11,11 @@ import {
   mapHeight,
   capacitorCapacityFor,
   suppliesCap,
+  partBuildCost,
+  partTypeNames,
   messageType,
 } from "@blasteroids/shared";
+import { keyBindings, bindingLabel } from "./keyBindings";
 
 const pixelsPerUnit = 40; // screen pixels per world unit (one part is one unit)
 
@@ -186,6 +190,74 @@ function drawVerticalBar(
   ctx.strokeRect(x, y, hudBarWidth, hudBarHeight);
 }
 
+// Tick lines across a bar at every multiple of stepFraction, so the player
+// can read the bar in units (the supplies bar: one gradation per part cost).
+function drawBarGradations(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  stepFraction: number,
+) {
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 0.5;
+  for (let f = stepFraction; f < 1; f += stepFraction) {
+    const lineY = y + hudBarHeight - hudBarHeight * f;
+    ctx.beginPath();
+    ctx.moveTo(x, lineY);
+    ctx.lineTo(x + hudBarWidth, lineY);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Build-key hints beside the supplies bar, dimmed while unaffordable. The
+// key letters come from keyBindings so they always match the real controls.
+const buildHints = [
+  { binding: keyBindings.buildCore, type: partType.core },
+  { binding: keyBindings.buildPower, type: partType.power },
+  { binding: keyBindings.buildEngine, type: partType.engine },
+  { binding: keyBindings.buildLaser, type: partType.laser },
+];
+
+function drawBuildHints(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  supplies: number,
+) {
+  const lineHeight = 18;
+  ctx.font = "14px monospace";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "bottom";
+  buildHints.forEach((hint, index) => {
+    const name = partTypeNames[hint.type] ?? "part";
+    ctx.globalAlpha = supplies >= partBuildCost ? 1 : 0.35;
+    ctx.fillStyle = "#fff";
+    ctx.fillText(
+      `${bindingLabel(hint.binding)} ${name}`,
+      x,
+      y + hudBarHeight - (buildHints.length - 1 - index) * lineHeight,
+    );
+  });
+  ctx.globalAlpha = 1;
+}
+
+// A transient center-screen warning (e.g. a rejected build).
+interface HudWarning {
+  text: string;
+  expiresAt: number;
+}
+
+const warningDurationMs = 3000;
+
+function buildRejectionText(rejection: BuildRejection): string {
+  const name = partTypeNames[rejection.partType] ?? "part";
+  if (rejection.reason === "unaffordable")
+    return `Not enough supplies to build a ${name}`;
+  return `No room to attach a ${name} - defragment or build a different part`;
+}
+
 // A world-space explosion burst, drawn as a growing-then-fading ring rather
 // than a sprite -- purely local, no asset needed, and easing size/alpha over
 // its lifetime reads as an impact flash on its own.
@@ -236,6 +308,7 @@ interface Props {
 export function GameCanvas({ room, state, sessionId }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const explosionsRef = useRef<Explosion[]>([]);
+  const warningRef = useRef<HudWarning | null>(null);
 
   useEffect(() => {
     room.onMessage(
@@ -247,6 +320,12 @@ export function GameCanvas({ room, state, sessionId }: Props) {
         }
       },
     );
+    room.onMessage(messageType.buildRejected, (rejection: BuildRejection) => {
+      warningRef.current = {
+        text: buildRejectionText(rejection),
+        expiresAt: performance.now() + warningDurationMs,
+      };
+    });
     // colyseus.js has no per-type listener removal; harmless to leave
     // attached for the room's lifetime, which matches this component's.
   }, [room]);
@@ -394,13 +473,28 @@ export function GameCanvas({ room, state, sessionId }: Props) {
           1,
           Math.max(0, myPlayer.supplies / suppliesCap),
         );
-        drawVerticalBar(
+        const suppliesBarX = hudBarMargin * 2 + hudBarWidth;
+        drawVerticalBar(ctx, suppliesBarX, barY, suppliesFraction, "#fc0");
+        drawBarGradations(ctx, suppliesBarX, barY, partBuildCost / suppliesCap);
+        drawBuildHints(
           ctx,
-          hudBarMargin * 2 + hudBarWidth,
+          suppliesBarX + hudBarWidth + 10,
           barY,
-          suppliesFraction,
-          "#fc0",
+          myPlayer.supplies,
         );
+      }
+
+      const warning = warningRef.current;
+      if (warning) {
+        if (performance.now() >= warning.expiresAt) {
+          warningRef.current = null;
+        } else {
+          ctx.font = "16px monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          ctx.fillStyle = "#f80";
+          ctx.fillText(warning.text, canvas.width / 2, canvas.height * 0.25);
+        }
       }
 
       animId = requestAnimationFrame(draw);

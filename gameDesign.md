@@ -279,8 +279,8 @@ Keep bindings separate from actions.
 
 Matches should always have the name number of ships (configurable, approximately 6-8). When the number of human players is lower than this number, ships are spawned and controlled by the server. When human players join, a computer-controlled ship is despawned to maintain the ship count.
 
-The algorithm for these enemies is intentionally very simple, and more robust AI to control them is deferred. 
-  
+The algorithm for these enemies is intentionally very simple, and more robust AI to control them is deferred.
+
 Computer-controlled ships prioritize behavior based on what is nearby:
 
 1. fight other ships - when within 20 units of another ship, they will choose the closest ship, orient toward it, and fire their lasers and engines.

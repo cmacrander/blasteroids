@@ -1,7 +1,7 @@
 ---
 name: feedback-qa-steps
 description: QA steps required after every code change in blasteroids
-metadata: 
+metadata:
   node_type: memory
   type: feedback
   originSessionId: f88828d1-2a9d-4a73-b292-dee41f56f720

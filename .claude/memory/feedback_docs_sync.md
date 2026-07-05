@@ -1,7 +1,7 @@
 ---
 name: feedback_docs_sync
 description: "Keep gameDesign.md in sync with the actual implementation — audit for drift after building a feature, and remove aspirational/unimplemented language rather than leaving it"
-metadata: 
+metadata:
   node_type: memory
   type: feedback
   originSessionId: 6784a6dc-2db3-42db-a2fb-e93632f37772

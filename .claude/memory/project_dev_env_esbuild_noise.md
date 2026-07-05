@@ -1,7 +1,7 @@
 ---
 name: project_dev_env_esbuild_noise
-description: "The vite.config \"Could not resolve\" error at dev startup is benign sandbox noise, not a real failure"
-metadata: 
+description: 'The vite.config "Could not resolve" error at dev startup is benign sandbox noise, not a real failure'
+metadata:
   node_type: memory
   type: project
   originSessionId: 38a7f6f0-10fe-4efb-9157-f70728d3996f

@@ -9,6 +9,14 @@ export const patchHz = 20;
 export const partType = { core: 0, power: 1, engine: 2, laser: 3 } as const;
 export type PartType = (typeof partType)[keyof typeof partType];
 
+// Display names keyed by part-type code, for HUD text and warnings.
+export const partTypeNames: Record<number, string> = {
+  [partType.core]: "core",
+  [partType.power]: "power",
+  [partType.engine]: "engine",
+  [partType.laser]: "laser",
+};
+
 export const facing = { north: 0, east: 1, south: 2, west: 3 } as const;
 export type Facing = (typeof facing)[keyof typeof facing];
 
@@ -26,8 +34,16 @@ export const messageType = {
   setLaserActivation: "setLaserActivation",
   setAimAngle: "setAimAngle",
   spawnExplosion: "spawnExplosion",
+  buildPart: "buildPart",
+  buildRejected: "buildRejected",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
+
+// Server -> client payload explaining a rejected buildPart request.
+export interface BuildRejection {
+  partType: number;
+  reason: "unaffordable" | "noSlot";
+}
 
 // Max energy a ship's capacitor can store scales with how much power
 // infrastructure it has, not a flat amount: see capacitorCapacityFor in
@@ -109,9 +125,12 @@ export const asteroidMaxSpeed = 2; // world units/s -- always slow vs ships (max
 export const asteroidEntryMargin = 10; // spawn this far outside the map edge
 export const asteroidDespawnMargin = 40; // remove once drifted this far out
 
-// Placeholder until the Building feature (see "Building" in gameDesign.md)
-// actually exists -- needed only to derive suppliesCap below.
+// Every part type costs the same to build (see "Building" in gameDesign.md);
+// the supply meter shows gradations at multiples of this.
 export const partBuildCost = 20;
+
+// HP a part has when freshly built or spawned.
+export const partMaxHp = 100;
 
 // Flat and permanent: unlike capacitorCapacityFor, this does not scale with
 // ship size. 10x the cost of a single part.

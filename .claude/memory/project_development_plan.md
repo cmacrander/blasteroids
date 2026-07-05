@@ -1,7 +1,7 @@
 ---
 name: project_development_plan
 description: "developmentPlan.md at repo root tracks prioritized next features; gameDesign.md is the spec, developmentPlan.md is the sequencing"
-metadata: 
+metadata:
   node_type: memory
   type: project
   originSessionId: 6784a6dc-2db3-42db-a2fb-e93632f37772

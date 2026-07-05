@@ -18,6 +18,9 @@ const wallThickness = 5;
 
 let world: RAPIER.World | undefined;
 const shipBodies = new Map<string, RAPIER.RigidBody>();
+// Per-ship collider handles keyed by part key, so a single part's collider
+// can be added (building, scavenging) or removed (destruction) later.
+const shipPartColliders = new Map<string, Map<string, RAPIER.Collider>>();
 
 // Rapier's WASM module must finish loading before any World/RigidBody is created.
 export async function initPhysics(): Promise<void> {
@@ -78,19 +81,42 @@ export function createShipBody(
   // One collider per part, positioned at its local offset, so Rapier derives
   // the ship's total mass, center of mass, and moment of inertia from the
   // actual part layout (see "Ship composition" in gameDesign.md).
-  ship.parts.forEach((part) => {
-    const colliderDesc = RAPIER.ColliderDesc.cuboid(
-      partHalfExtent,
-      partHalfExtent,
-    )
-      .setTranslation(part.offsetX, part.offsetY)
-      .setDensity(partDensity)
-      .setRestitution(0);
-    requireWorld().createCollider(colliderDesc, body);
+  const partColliders = new Map<string, RAPIER.Collider>();
+  ship.parts.forEach((part, key) => {
+    const collider = requireWorld().createCollider(
+      partColliderDesc(part),
+      body,
+    );
+    partColliders.set(key, collider);
   });
 
   shipBodies.set(sessionId, body);
+  shipPartColliders.set(sessionId, partColliders);
   return body;
+}
+
+function partColliderDesc(part: {
+  offsetX: number;
+  offsetY: number;
+}): RAPIER.ColliderDesc {
+  return RAPIER.ColliderDesc.cuboid(partHalfExtent, partHalfExtent)
+    .setTranslation(part.offsetX, part.offsetY)
+    .setDensity(partDensity)
+    .setRestitution(0);
+}
+
+// Attaches one more part collider to an existing ship body (building,
+// scavenging); Rapier recomputes mass properties automatically.
+export function addShipPartCollider(
+  sessionId: string,
+  partKey: string,
+  part: { offsetX: number; offsetY: number },
+): void {
+  const body = shipBodies.get(sessionId);
+  const partColliders = shipPartColliders.get(sessionId);
+  if (!body || !partColliders) return;
+  const collider = requireWorld().createCollider(partColliderDesc(part), body);
+  partColliders.set(partKey, collider);
 }
 
 export function removeShipBody(sessionId: string): void {
@@ -98,6 +124,7 @@ export function removeShipBody(sessionId: string): void {
   if (!body) return;
   requireWorld().removeRigidBody(body);
   shipBodies.delete(sessionId);
+  shipPartColliders.delete(sessionId);
 }
 
 export function getShipBody(sessionId: string): RAPIER.RigidBody | undefined {

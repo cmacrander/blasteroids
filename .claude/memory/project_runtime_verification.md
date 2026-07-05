@@ -1,7 +1,7 @@
 ---
 name: project_runtime_verification
 description: How to verify the running app — user views it in a host browser via a sandbox-published port; use npm run doctor to check dev servers
-metadata: 
+metadata:
   node_type: memory
   type: project
   originSessionId: 38a7f6f0-10fe-4efb-9157-f70728d3996f

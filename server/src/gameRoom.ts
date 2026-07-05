@@ -1,5 +1,6 @@
 // Colyseus room definition for a game match.
 import { Room, Client } from "colyseus";
+import type { BuildRejection } from "@blasteroids/shared";
 import {
   MatchState,
   Player,
@@ -27,6 +28,7 @@ import {
   createShipBody,
   removeShipBody,
   getShipBody,
+  addShipPartCollider,
   createAsteroidBody,
   getAsteroidBody,
   removeAsteroidBody,
@@ -35,7 +37,8 @@ import {
 import { tickMovement, capSpeed } from "./movement";
 import { tickRotation, capAngularSpeed } from "./rotation";
 import { tickLaserDamage, type ExplosionSpawn } from "./laserDamage";
-import { applyActivation, parseAimAngle } from "./playerInput";
+import { applyActivation, parseAimAngle, parsePartType } from "./playerInput";
+import { tryBuildPart } from "./buildPart";
 
 const fixedDtMs = 1000 / simulationHz;
 const fixedDt = 1 / simulationHz;
@@ -46,6 +49,7 @@ export class GameRoom extends Room<MatchState> {
   private accumulatorMs = 0;
   private targetAngles = new Map<string, number>();
   private nextAsteroidId = 0;
+  private nextPartId = 0;
 
   override async onCreate(): Promise<void> {
     await initPhysics();
@@ -90,6 +94,24 @@ export class GameRoom extends Room<MatchState> {
     this.onMessage(messageType.setAimAngle, (client, message: unknown) => {
       const angle = parseAimAngle(message);
       if (angle !== undefined) this.targetAngles.set(client.sessionId, angle);
+    });
+
+    this.onMessage(messageType.buildPart, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const requested = parsePartType(message);
+      if (!player || requested === undefined) return;
+
+      const key = `built-${String(this.nextPartId++)}`;
+      const result = tryBuildPart(player, requested, key);
+      if (!result.ok) {
+        const rejection: BuildRejection = {
+          partType: requested,
+          reason: result.reason,
+        };
+        client.send(messageType.buildRejected, rejection);
+        return;
+      }
+      addShipPartCollider(client.sessionId, result.key, result.part);
     });
 
     this.setSimulationInterval((deltaTime) => {

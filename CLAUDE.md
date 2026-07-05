@@ -28,7 +28,7 @@ You are a game developer obessed with code clarity. Your coding patterns include
   - `strict: true`
   - `noUncheckedIndexedAccess`
   - `exactOptionalPropertyTypes`
-- Use git commits to record clean, runnable  states of the app. A fellow developer should be able to check out any of your commits and run the game, seeing the features available at that time.
+- Use git commits to record clean, runnable states of the app. A fellow developer should be able to check out any of your commits and run the game, seeing the features available at that time.
 
 ## Code QA
 

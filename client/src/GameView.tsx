@@ -6,6 +6,7 @@ import { GameCanvas } from "./GameCanvas";
 import { attachEngineInput } from "./engineInput";
 import { attachLaserInput } from "./laserInput";
 import { attachAimInput } from "./aimInput";
+import { attachBuildInput } from "./buildInput";
 import { logGameConstants } from "./logGameConstants";
 
 interface Props {
@@ -17,6 +18,7 @@ export function GameView({ room, onExit }: Props) {
   useEffect(() => attachEngineInput(room), [room]);
   useEffect(() => attachLaserInput(room), [room]);
   useEffect(() => attachAimInput(room), [room]);
+  useEffect(() => attachBuildInput(room), [room]);
   useEffect(logGameConstants, []);
 
   return (

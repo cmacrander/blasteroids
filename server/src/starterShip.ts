@@ -1,7 +1,5 @@
 // Builds the starter ship every player spawns with: one of each part.
-import { Ship, Part, partType, facing } from "@blasteroids/shared";
-
-const starterHp = 100;
+import { Ship, Part, partType, facing, partMaxHp } from "@blasteroids/shared";
 
 // Grid offsets use +y as the ship's forward (north) direction: the laser sits at
 // the front with its lens facing out, the engine at the rear with exhaust facing out.
@@ -47,7 +45,7 @@ export function buildStarterShip(x: number, y: number): Ship {
     part.offsetX = spec.offsetX;
     part.offsetY = spec.offsetY;
     part.facing = spec.facing;
-    part.hp = starterHp;
+    part.hp = partMaxHp;
     // The starter core boots up powered on; power budgeting can never switch a
     // core on from a fully unpowered ship, since generation requires an active
     // core in the first place (see tickPowerBudget).
