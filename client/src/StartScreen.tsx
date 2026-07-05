@@ -1,8 +1,8 @@
 // Pre-game lobby screen shown to signed-in users.
-import type { User } from "firebase/auth";
+import type { AppUser } from "./devAuth";
 
 interface Props {
-  user: User;
+  user: AppUser;
   onQuickPlay: () => void;
   onSignOut: () => void;
 }

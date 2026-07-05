@@ -43,7 +43,7 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 
 ## Phase 3: local multiplayer
 
-- [ ] Local-only auth backdoor
+- [x] Local-only auth backdoor
   - To test multiplayer without having to set up many accounts, the developer should be able to log in by just clicking a button. The code should assign a unique arbitrary firebase ID as if the player was authenticated.
   - It should be possible to use different browsers to log in to the game on the same computer to validate multiplayer functionality
 
