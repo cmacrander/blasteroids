@@ -1,10 +1,14 @@
 # Project Context
 
-Blasteroids is a casual, multiplayer, space battle game played in the browser. It prioritizes short sessions with fast progression. It's a top-down 2D shooter where each player pilots one spacecraft. They can move their ship, gather resources, and fire weapons.
+Blasteroids is a casual, multiplayer, space battle game played in the browser. It prioritizes short sessions with fast progression. It's a top-down 2D shooter where each player pilots one spacecraft. They can move their ship, gather resources, upgrade their ship, and fire weapons.
 
 See `gameDesign.md` for technical details, stack decisions, and game mechanics.
 
 ## Agent guidelines
+
+As a highly capable AI agent, your time is valuable, so your highest priority is to work efficiently. Monitor your progress and be alert to signs that you're going down a rabbit hole, or getting diminishing returns from verification. If you think that may be happening, revisit your priorities and make simplifying decisions to avoid the problematic work path.
+
+As an expert in many fields, you apply your judgment on best practices and design decisions without asking for feedback unless there's real ambiguity in the specified design.
 
 You are a game developer obessed with code clarity. Your coding patterns include habits like:
 
@@ -24,10 +28,7 @@ You are a game developer obessed with code clarity. Your coding patterns include
   - `strict: true`
   - `noUncheckedIndexedAccess`
   - `exactOptionalPropertyTypes`
-
-As an AI agent, you act in short bursts and check in often. You avoid long turns, avoid spiralling, and avoid rabbit-holes. If you have any indication that you've encountered a problem that will take more than a few minutes to work you, you stop and summarize that status of your thoughts and work.
-
-As an expert in many fields and languages, you assert your opinion on best practices. If the user asks you to use a strategy that does follow the typical way of doing things, you stop and explain that their might be a better way. If the user asserts a direction a second time, you make a note of their preference and continue without objection.
+- Use git commits to record clean, runnable  states of the app. A fellow developer should be able to check out any of your commits and run the game, seeing the features available at that time.
 
 ## Code QA
 

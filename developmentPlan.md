@@ -2,7 +2,7 @@
 
 Ordered by priority. Each step should leave the project in a working, runnable state.
 
-Continue using the canvas to build the HUD, not React.
+## Phase 1: minimal single-player
 
 - [ ] Part-building feature
   - The user can see how many parts they can afford to build: gradations overlaid on supply meter in units of part cost
@@ -16,6 +16,18 @@ Continue using the canvas to build the HUD, not React.
   - Currently unimplemented: `Player.lastProcessedInput` sits in the schema unused, and there's no client-side prediction/replay code at all, despite gameDesign.md calling it out as required for responsive controls (see "Client-side prediction and reconciliation").
   - This is invisible in local dev, where server round-trip is near zero — it'll only show up as a real problem once played over actual network latency. Land it before real playtesting or deployment, not after, or the first real latency test will feel broken with no obvious cause.
   - Sequence-numbered input, replay-on-reconciliation, and easing a corrected position in over a few frames — as specced in gameDesign.md.
+
+## Phase 2: single player with ship combat
+
+- [ ] Entity scale and colliding-entity cap
+  - gameDesign.md already specs this (see "Entity scale and colliding-entity cap"): a hard cap on ship parts + rock parts + floating parts, past which new asteroids stop spawning. Not implemented at all yet.
+  - Currently nothing bounds entity count. It's not yet a real risk (asteroids replenish 1:1 and nothing produces floating parts), but ship combat above starts creating floating parts, and AI enemies above multiplies ship count — this needs to land before those make entity count actually run away, not after a real match hits the wall.
+- [ ] AI enemies
+  - gameDesign.md doesn't describe AI enemies anywhere yet — write that section (spawn count/rate, starter ship stats, difficulty curve, target-selection specifics) before or alongside implementing, so design and code don't drift the way they briefly did for Harvesting.
+  - Depends on "Ship-to-ship combat" above: "fight other ships" has nothing to fight with until lasers can damage ships.
+  - spawn in enemy starter ships
+  - prioritize behavior based on what is nearby: (1) fight other ships (2) mine asteroids (3) drift
+  - build parts whenever possible, with simple round-robin selections
 - [ ] Ship-to-ship combat and part destruction
   - Let lasers damage ship parts, not just asteroid cells. Ships already have one collider per part, so this is a plain raycast against ship colliders, not the asteroid grid-march path (see "Asteroid performance model" in gameDesign.md for why those two are different problems).
   - Implement the 0-HP rule for parts (see "Ship parts" in gameDesign.md): a part always either disappears or detaches into a free-floating part, governed by a configurable probability. `FloatingPart` already exists in the schema but nothing produces one yet.
@@ -28,15 +40,15 @@ Continue using the canvas to build the HUD, not React.
 - [ ] Scavenging
   - Floating parts retain their velocity and collide with nothing (see "Scavenging" in gameDesign.md)
   - The scavenge key (already bound in Controls) attempts to attach any overlapping floating parts to the player's ship, prioritizing engines at the rear and lasers at the front — same attach logic as part-building below, so build that as one reusable function both features call.
-- [ ] AI enemies
-  - gameDesign.md doesn't describe AI enemies anywhere yet — write that section (spawn count/rate, starter ship stats, difficulty curve, target-selection specifics) before or alongside implementing, so design and code don't drift the way they briefly did for Harvesting.
-  - Depends on "Ship-to-ship combat" above: "fight other ships" has nothing to fight with until lasers can damage ships.
-  - spawn in enemy starter ships
-  - prioritize behavior based on what is nearby: (1) fight other ships (2) mine asteroids (3) drift
-  - build parts whenever possible, with simple round-robin selections
-- [ ] Entity scale and colliding-entity cap
-  - gameDesign.md already specs this (see "Entity scale and colliding-entity cap"): a hard cap on ship parts + rock parts + floating parts, past which new asteroids stop spawning. Not implemented at all yet.
-  - Currently nothing bounds entity count. It's not yet a real risk (asteroids replenish 1:1 and nothing produces floating parts), but ship combat above starts creating floating parts, and AI enemies above multiplies ship count — this needs to land before those make entity count actually run away, not after a real match hits the wall.
+
+## Phase 3: local multiplayer
+
+- [ ] Local-only auth backdoor
+  - To test multiplayer without having to set up many accounts, the developer should be able to log in by just clicking a button. The code should assign a unique arbitrary firebase ID as if the player was authenticated.
+  - It should be possible to use different browsers to log in to the game on the same computer to validate multiplayer functionality
+
+## Phase 4: Version 1.0 real multiplayer
+
 - [ ] Deployment
   - `deploy:client`/`deploy:server` npm scripts already exist in package.json, but reference config that doesn't exist yet: there's no `server/fly.toml` and no `firebase.json`/`.firebaserc` at the repo root, so running either script today fails immediately.
   - Provision the actual Fly.io app and Firebase Hosting site, and add the missing config files

@@ -12,7 +12,7 @@ Auth is Firebase Auth (Google login). The client authenticates and passes a Fire
 
 The game server runs the authoritative game loop via Colyseus's `onUpdate(deltaTime)`. Clients receive state diffs automatically. Physics run server-side only using Rapier (Rust/WASM via `@dimforge/rapier2d`). Clients interpolate remote entities and locally predict their own ship for responsive controls. See "Simulation and networking" below for the tick model, prediction, and reconciliation.
 
-The visual layer uses an HTML Canvas 2D context. Each game part has a PNG sprite one unit wide; most are exactly one unit tall, but a sprite may be taller to show an effect extending past the part (e.g. an active/boosted engine's exhaust plume) without changing its collider. The renderer always scales sprite width to one unit and derives height from the image's own aspect ratio, anchoring the sprite's bottom edge (not its center) to the part's position, so extra height trails behind rather than being squeezed into a 1x1 box. Each animation frame, the canvas is cleared and all visible objects are redrawn with `drawImage()` and a rotation transform. React renders only the UI overlay (HUD, menus, scores) on top of the canvas.
+The visual layer uses an HTML Canvas 2D context. Each game part has a PNG sprite one unit wide; most are exactly one unit tall, but a sprite may be taller to show an effect extending past the part (e.g. an active/boosted engine's exhaust plume) without changing its collider. The renderer always scales sprite width to one unit and derives height from the image's own aspect ratio, anchoring the sprite's bottom edge (not its center) to the part's position, so extra height trails behind rather than being squeezed into a 1x1 box. Each animation frame, the canvas is cleared and all visible objects are redrawn with `drawImage()` and a rotation transform. HUD, menu, and other interface elements are also handled using the HTML canvas. When the affordances of the DOM are more appropriate for a task, the game uses React.
 
 Tests focus on:
 
@@ -274,3 +274,19 @@ Keep bindings separate from actions.
 | build engine part | key: d                             |
 | build laser part  | key: f                             |
 | defragment        | key: tab                           |
+
+## Computer-controlled enemy ships
+
+Matches should always have the name number of ships (configurable, approximately 6-8). When the number of human players is lower than this number, ships are spawned and controlled by the server. When human players join, a computer-controlled ship is despawned to maintain the ship count.
+
+The algorithm for these enemies is intentionally very simple, and more robust AI to control them is deferred. 
+  
+Computer-controlled ships prioritize behavior based on what is nearby:
+
+1. fight other ships - when within 20 units of another ship, they will choose the closest ship, orient toward it, and fire their lasers and engines.
+2. mine asteroids - when within 20 units of an asteroid, they will choose the closest asteroid, orient toward it, and fire their lasers and engines (unless rule 1 takes precedence)
+3. inactive - they will drift at current velocity (unless rule 1 or 2 takes precedence)
+
+Computer-controlled ships never use engine boost or laser boost, and they never defragment themselves. They will build parts whenever they have enough supplies to do so, with simple round-robin selections, unless attaching parts becomes impossible.
+
+The code for computer-controlled ships will likely change in future versions of the design.
