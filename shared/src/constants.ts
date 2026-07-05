@@ -36,6 +36,7 @@ export const messageType = {
   buildPart: "buildPart",
   buildRejected: "buildRejected",
   defragment: "defragment",
+  respawn: "respawn",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
@@ -106,6 +107,11 @@ export const laserRange = 15;
 export const laserDamageRate = 20; // HP/s per active laser
 export const laserBoostDamageRate = 60; // HP/s per boosted laser (3x active)
 export const suppliesPerCellDestroyed = 2;
+
+// Score: every supply earned from mining counts toward score for the whole
+// match (even when the spendable supplies pool is capped), plus a flat bonus
+// for each enemy ship kill, credited to the last player who lasered it.
+export const killScore = 100;
 
 // Chance, per damage application (not per tick of firing -- a single tick can
 // damage several cells at once), that it spawns a visible explosion. Damage

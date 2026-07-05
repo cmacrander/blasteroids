@@ -4,22 +4,22 @@ Ordered by priority. Each step should leave the project in a working, runnable s
 
 ## Phase 1: minimal single-player
 
-- [ ] Part-building feature
+- [x] Part-building feature
   - The user can see how many parts they can afford to build: gradations overlaid on supply meter in units of part cost
   - HUD that informs the user of what key strokes will build new parts. Link which keyboard letter is displayed to the configured key bindings (do not build user-changeable settings)
   - On part build, attach new part to the ship. Lasers always face forward, engines always face back. Implement this algorithm as a reusable function that can later be incorporated into defragmentation.
   - Support the case where there is no legal position to attach the new part, and display a warning to the user: user must defragment or build a different part type (do not implement defragmentation yet).
-- [ ] Defragmentation
+- [x] Defragmentation
   - Write the pseudocode algorithm as a function and test
   - Decide on ship behavior while defrag is in process (ship drifts, loses power, for some time period? scales with part number?) Should display progress meter on HUD.
-- [ ] Client-side prediction and reconciliation
+- [x] Client-side prediction and reconciliation
   - Currently unimplemented: `Player.lastProcessedInput` sits in the schema unused, and there's no client-side prediction/replay code at all, despite gameDesign.md calling it out as required for responsive controls (see "Client-side prediction and reconciliation").
   - This is invisible in local dev, where server round-trip is near zero — it'll only show up as a real problem once played over actual network latency. Land it before real playtesting or deployment, not after, or the first real latency test will feel broken with no obvious cause.
   - Sequence-numbered input, replay-on-reconciliation, and easing a corrected position in over a few frames — as specced in gameDesign.md.
 
 ## Phase 2: single player with ship combat
 
-- [ ] Entity scale and colliding-entity cap
+- [x] Entity scale and colliding-entity cap
   - gameDesign.md already specs this (see "Entity scale and colliding-entity cap"): a hard cap on ship parts + rock parts + floating parts, past which new asteroids stop spawning. Not implemented at all yet.
   - Currently nothing bounds entity count. It's not yet a real risk (asteroids replenish 1:1 and nothing produces floating parts), but ship combat above starts creating floating parts, and AI enemies above multiplies ship count — this needs to land before those make entity count actually run away, not after a real match hits the wall.
 - [ ] AI enemies
@@ -28,11 +28,11 @@ Ordered by priority. Each step should leave the project in a working, runnable s
   - spawn in enemy starter ships
   - prioritize behavior based on what is nearby: (1) fight other ships (2) mine asteroids (3) drift
   - build parts whenever possible, with simple round-robin selections
-- [ ] Ship-to-ship combat and part destruction
+- [x] Ship-to-ship combat and part destruction
   - Let lasers damage ship parts, not just asteroid cells. Ships already have one collider per part, so this is a plain raycast against ship colliders, not the asteroid grid-march path (see "Asteroid performance model" in gameDesign.md for why those two are different problems).
   - Implement the 0-HP rule for parts (see "Ship parts" in gameDesign.md): a part always either disappears or detaches into a free-floating part, governed by a configurable probability. `FloatingPart` already exists in the schema but nothing produces one yet.
   - Implement the flood-fill group-cut rule: when destruction disconnects a ship's parts into multiple groups, the group with more core parts survives as the live ship (random tiebreak); every other group's parts are destroyed/detached per the rule above. Reuses/extends the same flood-fill concept called for in "Ship composition."
-- [ ] Game over and respawn
+- [x] Game over and respawn
   - Detect the loss condition every tick: no core part or no power part remaining (see "Ship composition")
   - On loss: detach the camera, freeze it at the ship's last position, show a "Respawn" button. On click, spawn a fresh starter ship and reattach the camera; the match continues for everyone else.
   - Treat a mid-match disconnect the same as a loss

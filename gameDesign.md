@@ -156,6 +156,17 @@ When a player loses their ship (no core or no power part remaining), their camer
 
 If a player disconnects mid-match, their ship is handled the same way as a loss (parts left in the world are treated per existing rules). Colyseus reconnection handling for brief drops can be added later.
 
+Respawned and newly joined ships are placed at a random point comfortably inside the map, clear of asteroids and other ships.
+
+### Score
+
+A player's score is their lifetime supplies earned plus a kill bonus:
+
+- Every rock cell destroyed adds its supply yield to score, even when the spendable supplies pool is at its cap. Spending supplies on parts never reduces score.
+- Destroying another ship (its last core or power part) awards a flat bonus (killScore, 100) to the last player whose laser damaged it, including when the victim disconnects mid-fight.
+
+Score is displayed on the HUD and resets with every match (no persistence in v1).
+
 ### Scavenging
 
 Parts which are not connected to any ship (they reached 0 HP and detached) retain their velocity but move without colliding with anything. The player can press a key at any time to capture parts that overlap with their ship. The game code then attempts to attach those parts to the player's ship, if possible, prioritizing engines at the rear and lasers at the front.

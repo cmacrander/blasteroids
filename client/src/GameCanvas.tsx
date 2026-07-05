@@ -354,6 +354,9 @@ export function GameCanvas({ room, state, sessionId, sim }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const explosionsRef = useRef<Explosion[]>([]);
   const warningRef = useRef<HudWarning | null>(null);
+  // Where the camera last sat: when the ship is lost, the camera freezes
+  // here instead of jumping away (see "Game over and respawn").
+  const lastCamRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!room) return;
@@ -414,8 +417,10 @@ export function GameCanvas({ room, state, sessionId, sim }: Props) {
       const myPlayer = state.players.get(sessionId);
       const myShip = myPlayer?.ship;
       const myPose = sim?.localPose() ?? (myShip ? myShip.body : null);
-      const camX = myPose ? myPose.x : mapWidth / 2;
-      const camY = myPose ? myPose.y : mapHeight / 2;
+      if (myPose) lastCamRef.current = { x: myPose.x, y: myPose.y };
+      const cam = myPose ?? lastCamRef.current;
+      const camX = cam ? cam.x : mapWidth / 2;
+      const camY = cam ? cam.y : mapHeight / 2;
 
       // World +y is north; screen y grows downward, so the y axis is flipped.
       const toScreenX = (wx: number) =>
@@ -574,6 +579,18 @@ export function GameCanvas({ room, state, sessionId, sim }: Props) {
             1 - myShip.defragRemaining / myShip.defragTotal,
           );
         }
+      }
+
+      if (myPlayer) {
+        ctx.font = "16px monospace";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(
+          `score ${String(myPlayer.score)}`,
+          hudBarMargin,
+          hudBarMargin,
+        );
       }
 
       const warning = warningRef.current;

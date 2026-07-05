@@ -170,6 +170,8 @@ function applyCellDamage(
       suppliesCap,
       player.supplies + suppliesPerCellDestroyed,
     );
+    // Score counts lifetime supplies earned, uncapped and never spent.
+    player.score += suppliesPerCellDestroyed;
     pendingDamage.delete(key);
   }
 }

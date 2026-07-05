@@ -20,6 +20,8 @@ import {
   defragDurationSeconds,
   FloatingPart,
   detachedPartHp,
+  shipIsViable,
+  killScore,
 } from "@blasteroids/shared";
 import { buildStarterShip } from "./starterShip";
 import {
@@ -52,7 +54,12 @@ import {
   type ExplosionSpawn,
   type ZeroedPart,
 } from "./laserDamage";
-import { resolveDestroyedParts, type RemovedPart } from "./shipDamage";
+import {
+  resolveDestroyedParts,
+  scatterAllParts,
+  type RemovedPart,
+} from "./shipDamage";
+import { findShipSpawn } from "./spawnPoint";
 import {
   applyActivation,
   parsePartType,
@@ -149,6 +156,14 @@ export class GameRoom extends Room<MatchState> {
       body.resetTorques(true);
     });
 
+    this.onMessage(messageType.respawn, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.ship) return;
+      const spawn = findShipSpawn(this.state);
+      player.ship = buildStarterShip(spawn.x, spawn.y);
+      createShipBody(client.sessionId, player.ship);
+    });
+
     this.onMessage(messageType.buildPart, (client, message: unknown) => {
       const player = this.state.players.get(client.sessionId);
       const requested = parsePartType(message);
@@ -207,6 +222,7 @@ export class GameRoom extends Room<MatchState> {
     });
 
     this.resolveZeroedParts(zeroedParts);
+    this.checkLossConditions();
 
     // One batched broadcast per tick rather than one per explosion -- keeps
     // this a fixed-cost message regardless of how many players are mining.
@@ -260,6 +276,35 @@ export class GameRoom extends Room<MatchState> {
       const removed = resolveDestroyedParts(ship, keys, Math.random);
       this.spawnDetachedParts(ship, removed);
       resetShipColliders(victimId, ship);
+    }
+  }
+
+  // A ship missing its last core or last power part is lost (see "Game over
+  // and respawn" in gameDesign.md): its remaining parts scatter per the
+  // detach-or-destroy roll, the last attacker gets the kill bonus, and the
+  // player keeps spectating (camera frozen client-side) until they respawn.
+  private checkLossConditions(): void {
+    this.state.players.forEach((player, sessionId) => {
+      const ship = player.ship;
+      if (!ship || shipIsViable(ship)) return;
+      this.loseShip(sessionId, player);
+    });
+  }
+
+  private loseShip(sessionId: string, player: Player): void {
+    const ship = player.ship;
+    if (!ship) return;
+
+    const removed = scatterAllParts(ship, Math.random);
+    this.spawnDetachedParts(ship, removed);
+    removeShipBody(sessionId);
+    player.ship = undefined;
+
+    const attackerId = this.lastAttacker.get(sessionId);
+    this.lastAttacker.delete(sessionId);
+    if (attackerId !== undefined && attackerId !== sessionId) {
+      const attacker = this.state.players.get(attackerId);
+      if (attacker) attacker.score += killScore;
     }
   }
 
@@ -393,15 +438,22 @@ export class GameRoom extends Room<MatchState> {
   override onJoin(client: Client): void {
     console.log(`${client.sessionId} joined`);
     const player = new Player();
-    player.ship = buildStarterShip(mapWidth / 2, mapHeight / 2);
+    const spawn = findShipSpawn(this.state);
+    player.ship = buildStarterShip(spawn.x, spawn.y);
     this.state.players.set(client.sessionId, player);
     createShipBody(client.sessionId, player.ship);
   }
 
+  // A mid-match disconnect is handled the same as a loss (see "Game over and
+  // respawn" in gameDesign.md): the ship's parts scatter and any pending kill
+  // credit is awarded before the player is dropped.
   override onLeave(client: Client): void {
     console.log(`${client.sessionId} left`);
+    const player = this.state.players.get(client.sessionId);
+    if (player?.ship) this.loseShip(client.sessionId, player);
     this.state.players.delete(client.sessionId);
     removeShipBody(client.sessionId);
     this.targetAngles.delete(client.sessionId);
+    this.lastAttacker.delete(client.sessionId);
   }
 }
