@@ -37,7 +37,7 @@ Ordered by priority. Each step should leave the project in a working, runnable s
   - On loss: detach the camera, freeze it at the ship's last position, show a "Respawn" button. On click, spawn a fresh starter ship and reattach the camera; the match continues for everyone else.
   - Treat a mid-match disconnect the same as a loss
   - `player.score` already exists in the schema but nothing increments it and nothing displays it. Decide what counts as score (kills? supplies collected? survival time?) before wiring it up — that's a design decision, not just implementation.
-- [ ] Scavenging
+- [x] Scavenging
   - Floating parts retain their velocity and collide with nothing (see "Scavenging" in gameDesign.md)
   - The scavenge key (already bound in Controls) attempts to attach any overlapping floating parts to the player's ship, prioritizing engines at the rear and lasers at the front — same attach logic as part-building below, so build that as one reusable function both features call.
 

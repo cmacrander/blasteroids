@@ -69,6 +69,7 @@ import {
   parsePlayerInput,
 } from "./playerInput";
 import { tryBuildPart } from "./buildPart";
+import { tryScavengeParts } from "./scavengePart";
 
 const fixedDtMs = 1000 / simulationHz;
 const fixedDt = 1 / simulationHz;
@@ -186,6 +187,20 @@ export class GameRoom extends Room<MatchState> {
         return;
       }
       addShipPartCollider(client.sessionId, result.key, result.part);
+    });
+
+    this.onMessage(messageType.scavenge, (client) => {
+      const ship = this.state.players.get(client.sessionId)?.ship;
+      if (!ship) return;
+
+      const { attached, claimedIds } = tryScavengeParts(
+        ship,
+        this.state.floatingParts,
+      );
+      for (const { key, part } of attached) {
+        addShipPartCollider(client.sessionId, key, part);
+      }
+      for (const id of claimedIds) this.state.floatingParts.delete(id);
     });
 
     this.setSimulationInterval((deltaTime) => {

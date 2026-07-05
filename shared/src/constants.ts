@@ -37,6 +37,7 @@ export const messageType = {
   buildRejected: "buildRejected",
   defragment: "defragment",
   respawn: "respawn",
+  scavenge: "scavenge",
 } as const;
 export type MessageType = (typeof messageType)[keyof typeof messageType];
 
@@ -167,6 +168,11 @@ export const partDetachChance = 0.3;
 // A detached part re-enters the world at half strength; this is the HP it
 // carries as a floating part and brings along when scavenged.
 export const detachedPartHp = 50;
+
+// Overlap distance (world units) for scavenging: a floating part attaches
+// when it drifts this close to any of the player's ship parts. Ships are
+// small, so a brute-force distance check against every part is fine.
+export const scavengeRange = 1;
 
 // Defragmentation downtime: the ship drifts with engines and lasers off (and
 // stays vulnerable) for a duration that scales with ship size.
